@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Секретарь ММА</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <aside class="rail">
+    <div class="brand">
+      <div class="mark">ММА</div>
+      <div>
+        <div class="brand-name">Секретарь</div>
+        <div class="brand-sub" id="brand-sub">турнир</div>
+      </div>
+    </div>
+    <nav id="nav">
+      <button data-view="setup" class="active">Реквизиты</button>
+      <button data-view="people">Участники</button>
+      <button data-view="weigh">Взвешивание</button>
+      <button data-view="cats">Категории</button>
+      <button data-view="brackets">Сетки</button>
+      <button data-view="bouts">Бои</button>
+      <button data-view="results">Итоги</button>
+      <button data-view="docs">Документы</button>
+    </nav>
+    <div class="rail-foot">
+      <button id="btn-undo" class="ghost">Отменить</button>
+      <button id="btn-backup" class="ghost">Резервная копия</button>
+      <label class="ghost file-btn">Открыть<input type="file" id="file-import" accept=".json" hidden></label>
+    </div>
+  </aside>
+
+  <main>
+    <header class="top">
+      <div>
+        <h1 id="page-title">Реквизиты</h1>
+        <p id="page-hint" class="hint">Название, судьи, возрасты, дивизионы и веса</p>
+      </div>
+      <div class="top-actions">
+        <span id="save-dot" class="saved">сохранено</span>
+      </div>
+    </header>
+    <section id="view"></section>
+  </main>
+
+  <div id="modal" class="modal hidden" role="dialog">
+    <div class="modal-card">
+      <header>
+        <h3 id="modal-title"></h3>
+        <button class="icon" id="modal-close">×</button>
+      </header>
+      <div id="modal-body"></div>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
