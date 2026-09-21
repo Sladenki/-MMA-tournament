@@ -89,7 +89,7 @@ def build_bracket(n: int, *, bronze_bout: bool = False) -> Bracket:
     if n == 1:
         match = MatchSpec(
             key="auto-1",
-            round_code="авто",
+            round_code="без боя",
             slot=0,
             blue_ctrl=1,
             winner_ctrl=1,

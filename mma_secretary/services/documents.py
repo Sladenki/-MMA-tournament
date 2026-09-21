@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from html import escape
 
+from mma_secretary.core.labels import round_ru
 from mma_secretary.core.normalize import format_kg
 from mma_secretary.services.engine import TournamentService
 
@@ -103,7 +104,7 @@ def pair_list(svc: TournamentService) -> str:
             f"<tr><td>{b['bout_no'] or ''}</td>"
             f"<td class='blue'>{escape(b['blue']['name'])} ({escape(b['blue']['organization'])})</td>"
             f"<td class='red'>{escape(b['red']['name'])} ({escape(b['red']['organization'])})</td>"
-            f"<td>{escape(str(b.get('weight_label') or ''))}</td><td>{escape(b['round_code'])}</td></tr>"
+            f"<td>{escape(str(b.get('weight_label') or ''))}</td><td>{escape(round_ru(b['round_code']))}</td></tr>"
         )
     body = _header(t) + f"""
     <h2>Список пар</h2>
@@ -123,7 +124,7 @@ def corner_list(svc: TournamentService) -> str:
             f"<td class='blue'>{escape(b['blue']['name'])}<br><small>{escape(b['blue']['organization'])}</small></td>"
             f"<td class='red'>{escape(b['red']['name'])}<br><small>{escape(b['red']['organization'])}</small></td>"
             f"<td>{escape(str(b.get('weight_label') or ''))}</td>"
-            f"<td>{escape(b['round_code'])}</td><td>{b.get('ring') or ''}</td></tr>"
+            f"<td>{escape(round_ru(b['round_code']))}</td><td>{b.get('ring') or ''}</td></tr>"
         )
     body = _header(t) + f"""
     <h2>Список боёв по углам</h2>
@@ -214,7 +215,7 @@ def scorecards(svc: TournamentService) -> str:
           <h2>Судейская записка · бой № {b["bout_no"] or "—"}</h2>
           <table>
             <tr><th>Категория</th><td>{escape(str(b.get("weight_label") or ""))}</td>
-                <th>Тур</th><td>{escape(b["round_code"])}</td><th>Ринг</th><td>{b.get("ring") or ""}</td></tr>
+                <th>Тур</th><td>{escape(round_ru(b["round_code"]))}</td><th>Ринг</th><td>{b.get("ring") or ""}</td></tr>
           </table>
           <br>
           <table>
@@ -334,7 +335,7 @@ def _elim_svg(detail: dict, entries: dict, fights: list[dict]) -> str:
     parts = [f"<svg xmlns='http://www.w3.org/2000/svg' width='{width}' height='{height}' font-family='Segoe UI, sans-serif'>"]
     for ci, code in enumerate(cols):
         x = 20 + ci * col_w
-        parts.append(f"<text x='{x}' y='18' font-size='12' fill='#555'>{escape(code)}</text>")
+        parts.append(f"<text x='{x}' y='18' font-size='12' fill='#555'>{escape(round_ru(code))}</text>")
         items = sorted(rounds[code], key=lambda b: b.get("slot") or 0)
         gap = height / (len(items) + 1)
         for i, b in enumerate(items):

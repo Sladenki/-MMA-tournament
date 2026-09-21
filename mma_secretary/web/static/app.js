@@ -1,23 +1,47 @@
 const $ = (s, r=document) => r.querySelector(s);
 const $$ = (s, r=document) => [...r.querySelectorAll(s)];
 
-const state = {
-  view: "setup",
-  boot: null,
-  sort: "seq",
-  catId: null,
-};
+const state = { view: "setup", boot: null, sort: "seq", catId: null };
 
 const titles = {
-  setup: ["Реквизиты", "Название, судьи, возрасты, дивизионы и веса"],
-  people: ["Участники", "Реестр, импорт, поиск и сортировки как в старом файле"],
-  weigh: ["Взвешивание", "Фактический вес, допуск, история перевзвешивания"],
-  cats: ["Категории", "Разбиение, отчёт «не размещены», жеребьёвка"],
-  brackets: ["Сетки", "Клик по паре — внести победителя. Победители продвигаются сами"],
-  bouts: ["Бои", "Сквозная нумерация, углы, ринг, характер победы"],
-  results: ["Итоги", "Места, очки, командный зачёт, мандатная комиссия"],
-  docs: ["Документы", "Печать в PDF из браузера, выгрузка XLSX"],
+  setup: ["Реквизиты", "Сначала заполните турнир. Потом можно сразу переходить к участникам."],
+  people: ["Участники", "Добавьте заявку вручную или загрузите таблицу. Отчество программа отрежет сама."],
+  weigh: ["Взвешивание", "Впишите фактический вес и нажмите «Записать». Запятая и точка оба подходят."],
+  cats: ["Категории", "Разбейте список по возрасту, дивизиону и весу. Кто не попал — будет в жёлтом списке, а не пропадёт."],
+  brackets: ["Сетки", "Выберите категорию и нажмите на пару, чтобы записать победителя. Он сам пойдёт дальше."],
+  bouts: ["Бои", "Все пары турнира по порядку. Здесь же можно поставить номер ринга."],
+  results: ["Итоги", "Места, очки команд и мандатная комиссия считаются автоматически."],
+  docs: ["Документы", "Откройте форму и в браузере нажмите Ctrl+P — так получается PDF."],
 };
+
+const KIND_RU = {
+  empty: "пусто",
+  walkover: "без боя",
+  final: "финал",
+  round_robin: "круговая",
+  single_elim: "олимпийская",
+};
+const ROUND_RU = {
+  "авто": "без боя",
+  "без боя": "без боя",
+  "круг": "круг",
+  "1/32": "1/32 финала",
+  "1/16": "1/16 финала",
+  "1/8": "1/8 финала",
+  "1/4": "1/4 финала",
+  "1/2": "1/2 финала",
+  "финал": "финал",
+  "за бронзу": "за бронзу",
+};
+
+function kindRu(v) { return KIND_RU[v] || v || "—"; }
+function roundRu(v) { return ROUND_RU[v] || v || "—"; }
+function statusClass(s) {
+  if (s === "допущен" || s === "взвешен") return "ok";
+  if (s === "снят" || s === "не явился") return "bad";
+  if (s === "заявлен") return "warn";
+  return "";
+}
 
 async function api(path, opts={}) {
   $("#save-dot").textContent = "сохранение…";
@@ -43,7 +67,7 @@ async function api(path, opts={}) {
 function toast(msg, kind="ok") {
   const n = document.createElement("div");
   n.textContent = msg;
-  n.style.cssText = `position:fixed;right:18px;bottom:18px;background:${kind==="ok"?"#1f1a17":"#9c1d1d"};color:#fff;padding:10px 14px;border-radius:6px;z-index:50`;
+  n.style.cssText = `position:fixed;right:18px;bottom:18px;background:${kind==="ok"?"#16324f":"#c0122a"};color:#fff;padding:12px 16px;border-radius:8px;z-index:50;font-weight:600`;
   document.body.appendChild(n);
   setTimeout(() => n.remove(), 2800);
 }
@@ -63,7 +87,7 @@ $("#modal").addEventListener("click", e => { if (e.target.id === "modal") closeM
 
 $$("#nav button").forEach(b => b.onclick = () => show(b.dataset.view));
 $("#btn-undo").onclick = async () => {
-  try { const r = await api("/api/undo", { method: "POST", body: {} }); toast("Отменено: " + r.undone); show(state.view); }
+  try { const r = await api("/api/undo", { method: "POST", body: {} }); toast("Отменено"); show(state.view); }
   catch (e) { toast(e.message, "err"); }
 };
 $("#btn-backup").onclick = () => { location.href = "/api/export"; };
@@ -85,9 +109,31 @@ async function show(view) {
   $$("#nav button").forEach(b => b.classList.toggle("active", b.dataset.view === view));
   $("#page-title").textContent = titles[view][0];
   $("#page-hint").textContent = titles[view][1];
-  const fn = views[view];
-  $("#view").innerHTML = "<p class='hint'>загрузка…</p>";
-  try { await fn(); } catch (e) { $("#view").innerHTML = `<div class="warn-box">${esc(e.message)}</div>`; }
+  $("#view").innerHTML = "<p>Загрузка…</p>";
+  try { await views[view](); } catch (e) { $("#view").innerHTML = `<div class="warn-box">${esc(e.message)}</div>`; }
+}
+
+function resultForm(b, methodsHtml, onDone) {
+  if (!b.blue || !b.red) return;
+  openModal("Кто победил" + (b.bout_no ? ` · бой № ${b.bout_no}` : ""), `
+    <p>${esc(roundRu(b.round_title || b.round_code))}</p>
+    <div class="pick">
+      <button class="btn blue wide" id="pick-blue" type="button">Синий угол<br>${esc(b.blue.name)}</button>
+      <button class="btn red wide" id="pick-red" type="button">Красный угол<br>${esc(b.red.name)}</button>
+    </div>
+    <label class="field">Как победил
+      <select id="w-m">${methodsHtml}</select>
+    </label>
+    ${b.winner_entry_id || b.winner ? `<button class="btn sec" id="w-clr" type="button">Сбросить результат</button>` : ""}
+  `);
+  const send = async (entryId) => {
+    await api(`/api/bouts/${b.id}/result`, { method:"POST", body:{ winner_entry_id: entryId, method: $("#w-m").value }});
+    closeModal(); onDone();
+  };
+  $("#pick-blue").onclick = () => send(b.blue.id);
+  $("#pick-red").onclick = () => send(b.red.id);
+  const clr = $("#w-clr");
+  if (clr) clr.onclick = async () => { await api(`/api/bouts/${b.id}/clear`, { method:"POST", body:{} }); closeModal(); onDone(); };
 }
 
 const views = {
@@ -96,9 +142,9 @@ const views = {
     $("#view").innerHTML = `
       <div class="grid two">
         <div class="card">
-          <h2>Турнир</h2>
+          <h2>О турнире</h2>
           <label class="field">Название<input id="t-name" value="${esc(t.name)}"></label>
-          <label class="field">Вид<input id="t-kind" value="${esc(t.kind)}"></label>
+          <label class="field">Вид спорта<input id="t-kind" value="${esc(t.kind)}"></label>
           <div class="grid two">
             <label class="field">Дата<input id="t-date" type="date" value="${esc(t.date||"")}"></label>
             <label class="field">Город<input id="t-city" value="${esc(t.city)}"></label>
@@ -106,36 +152,39 @@ const views = {
           <label class="field">Главный судья<input id="t-ref" value="${esc(t.chief_referee)}"></label>
           <label class="field">Главный секретарь<input id="t-sec" value="${esc(t.chief_secretary)}"></label>
           <div class="grid two">
-            <label class="field">Рингов<input id="t-rings" type="number" min="1" value="${t.rings||1}"></label>
-            <label class="field">Бой за бронзу
-              <select id="t-bronze"><option value="0">две бронзы</option><option value="1">играть за 3–4</option></select>
+            <label class="field">Сколько рингов<input id="t-rings" type="number" min="1" value="${t.rings||1}"></label>
+            <label class="field">Третье место
+              <select id="t-bronze">
+                <option value="0">два третьих места</option>
+                <option value="1">отдельный бой за бронзу</option>
+              </select>
             </label>
           </div>
-          <label class="field"><span><input type="checkbox" id="t-walk" ${t.award_walkover?"checked":""}> очки одиночке (n=1)</span></label>
-          <button class="btn" id="t-save">Сохранить</button>
+          <label class="field"><span><input type="checkbox" id="t-walk" ${t.award_walkover?"checked":""}> если в категории один человек — дать ему очки за 1-е место</span></label>
+          <button class="btn" id="t-save" type="button">Сохранить реквизиты</button>
         </div>
         <div>
-          <div class="card" style="margin-bottom:14px">
+          <div class="card">
             <h2>Возрастные группы</h2>
             <div id="ages"></div>
-            <div class="row"><input id="age-label" placeholder="2007-2008 или 2010+"><button class="btn tiny" id="age-add">Добавить</button></div>
+            <div class="row"><input id="age-label" placeholder="например 2007-2008"><button class="btn sec" id="age-add" type="button">Добавить</button></div>
           </div>
-          <div class="card" style="margin-bottom:14px">
+          <div class="card">
             <h2>Дивизионы</h2>
             <div id="divs"></div>
-            <div class="row"><input id="div-code" placeholder="А"><button class="btn tiny" id="div-add">Добавить</button></div>
+            <div class="row"><input id="div-code" placeholder="А"><button class="btn sec" id="div-add" type="button">Добавить</button></div>
           </div>
           <div class="card">
             <h2>Весовые категории, кг</h2>
             <div id="wts"></div>
-            <div class="row"><input id="wt-kg" placeholder="52,2"><button class="btn tiny" id="wt-add">Добавить</button></div>
+            <div class="row"><input id="wt-kg" placeholder="52,2"><button class="btn sec" id="wt-add" type="button">Добавить</button></div>
           </div>
         </div>
       </div>
-      <div class="card" style="margin-top:14px">
+      <div class="card">
         <h2>Очки за места</h2>
         <div id="pts"></div>
-        <button class="btn sec tiny" id="pts-save">Сохранить очки</button>
+        <button class="btn sec" id="pts-save" type="button">Сохранить очки</button>
       </div>`;
     $("#t-bronze").value = t.bronze_bout ? "1" : "0";
     $("#t-save").onclick = async () => {
@@ -147,21 +196,12 @@ const views = {
         award_walkover: $("#t-walk").checked ? 1 : 0,
       }});
       $("#brand-sub").textContent = state.boot.tournament.name;
-      toast("Реквизиты сохранены");
+      toast("Сохранено");
     };
     renderCatalogs();
-    $("#age-add").onclick = async () => {
-      await api("/api/age-groups", { method: "POST", body: { label: $("#age-label").value } });
-      await boot(); renderCatalogs();
-    };
-    $("#div-add").onclick = async () => {
-      await api("/api/divisions", { method: "POST", body: { code: $("#div-code").value } });
-      await boot(); renderCatalogs();
-    };
-    $("#wt-add").onclick = async () => {
-      await api("/api/weights", { method: "POST", body: { limit_kg: $("#wt-kg").value } });
-      await boot(); renderCatalogs();
-    };
+    $("#age-add").onclick = async () => { await api("/api/age-groups", { method: "POST", body: { label: $("#age-label").value } }); await boot(); renderCatalogs(); };
+    $("#div-add").onclick = async () => { await api("/api/divisions", { method: "POST", body: { code: $("#div-code").value } }); await boot(); renderCatalogs(); };
+    $("#wt-add").onclick = async () => { await api("/api/weights", { method: "POST", body: { limit_kg: $("#wt-kg").value } }); await boot(); renderCatalogs(); };
     $("#pts-save").onclick = savePoints;
   },
 
@@ -169,21 +209,22 @@ const views = {
     const list = await api("/api/participants?sort=" + state.sort);
     $("#view").innerHTML = `
       <div class="toolbar">
-        <input id="q" placeholder="поиск…" style="max-width:240px">
+        <div class="stat"><b>${list.length}</b><span>в списке</span></div>
+        <input id="q" placeholder="Найти по фамилии или клубу" style="max-width:280px">
         <select id="sort">
           <option value="seq">по номеру</option>
           <option value="team">команда → год → жребий</option>
-          <option value="weight">вес</option>
+          <option value="weight">по весу</option>
           <option value="year_weight">год → вес</option>
-          <option value="alpha">алфавит</option>
-          <option value="draw">жребий</option>
+          <option value="alpha">по алфавиту</option>
+          <option value="draw">по жребию</option>
         </select>
-        <button class="btn" id="p-add">Добавить</button>
-        <label class="btn sec file-btn">Импорт XLSX<input type="file" id="p-imp" accept=".xlsx,.xlsm,.csv" hidden></label>
-        <a class="btn sec" href="/api/export/participants.xlsx">Скачать XLSX</a>
-        <button class="btn sec" id="p-demo">Пример 14.09.2024</button>
+        <button class="btn" id="p-add" type="button">Добавить участника</button>
+        <label class="btn sec file-btn">Загрузить Excel<input type="file" id="p-imp" accept=".xlsx,.xlsm,.csv" hidden></label>
+        <a class="btn sec" href="/api/export/participants.xlsx">Скачать список</a>
+        <button class="btn sec" id="p-demo" type="button">Учебный список (14 человек)</button>
       </div>
-      <div class="card" style="padding:0;overflow:auto">
+      <div class="table-wrap">
         <table class="data" id="ptable">
           <thead><tr><th>№</th><th>Жребий</th><th>ФИО</th><th>Организация</th><th>Разряд</th><th>Год</th><th>Тренер</th><th>Вес</th><th>Статус</th><th></th></tr></thead>
           <tbody></tbody>
@@ -197,10 +238,10 @@ const views = {
         <td>${p.seq??""}</td><td>${p.draw_number??""}</td>
         <td><b>${esc(p.name)}</b></td><td>${esc(p.organization)}</td>
         <td>${esc(p.rank)}</td><td>${p.birth_year??""}</td><td>${esc(p.coach)}</td>
-        <td>${p.weight ?? ""}</td><td><span class="badge">${esc(p.status)}</span></td>
-        <td><button class="btn tiny sec" data-edit="${p.id}">изм.</button>
-            <button class="btn tiny danger" data-del="${p.id}">×</button></td>
-      </tr>`).join("");
+        <td>${p.weight ?? "—"}</td><td><span class="badge ${statusClass(p.status)}">${esc(p.status)}</span></td>
+        <td><button class="btn sec" data-edit="${p.id}" type="button">Изменить</button>
+            <button class="btn danger" data-del="${p.id}" type="button">Удалить</button></td>
+      </tr>`).join("") || `<tr><td colspan="10">Список пуст. Добавьте человека или загрузите Excel.</td></tr>`;
     };
     draw(list);
     $("#q").oninput = () => {
@@ -217,27 +258,30 @@ const views = {
       const f = e.target.files[0]; if (!f) return;
       const fd = new FormData(); fd.append("file", f);
       const r = await fetch("/api/participants/import", { method:"POST", body: fd }).then(x=>x.json());
-      toast(`Импортировано: ${r.added}`); show("people");
+      toast(`Загружено: ${r.added}`); show("people");
     };
-    $("#p-demo").onclick = async () => { await api("/api/demo", { method:"POST", body:{} }); toast("Загружен пример"); show("people"); };
+    $("#p-demo").onclick = async () => { await api("/api/demo", { method:"POST", body:{} }); toast("Учебный список загружен"); show("people"); };
   },
 
   async weigh() {
     const list = await api("/api/participants?sort=alpha");
-    const left = list.filter(p => p.weight == null && p.status === "заявлен").length;
+    const left = list.filter(p => p.weight == null).length;
     $("#view").innerHTML = `
-      <p class="hint">Без веса: <b>${left}</b>. Запятая и точка принимаются. Перевзвешивание пишется в историю.</p>
-      <div class="card" style="padding:0;overflow:auto">
+      <div class="toolbar">
+        <div class="stat"><b>${left}</b><span>ещё без веса</span></div>
+        <div class="stat"><b>${list.length - left}</b><span>уже взвешены</span></div>
+      </div>
+      <div class="table-wrap">
         <table class="data">
-          <thead><tr><th>ФИО</th><th>Орг.</th><th>Год</th><th>Вес</th><th>Статус</th><th></th></tr></thead>
+          <thead><tr><th>ФИО</th><th>Организация</th><th>Год</th><th>Вес, кг</th><th>Статус</th><th></th></tr></thead>
           <tbody>${list.map(p => `<tr>
-            <td>${esc(p.name)}</td><td>${esc(p.organization)}</td><td>${p.birth_year??""}</td>
-            <td><input data-w="${p.id}" value="${p.weight ?? ""}" style="width:80px"></td>
+            <td><b>${esc(p.name)}</b></td><td>${esc(p.organization)}</td><td>${p.birth_year??""}</td>
+            <td><input data-w="${p.id}" value="${p.weight ?? ""}" inputmode="decimal" style="width:110px"></td>
             <td><select data-st="${p.id}">
               ${["заявлен","взвешен","допущен","снят","не явился"].map(s => `<option ${s===p.status?"selected":""}>${s}</option>`).join("")}
             </select></td>
-            <td><button class="btn tiny" data-save="${p.id}">записать</button>
-                <button class="btn tiny sec" data-hist="${p.id}">история</button></td>
+            <td><button class="btn" data-save="${p.id}" type="button">Записать</button>
+                <button class="btn sec" data-hist="${p.id}" type="button">История</button></td>
           </tr>`).join("")}</tbody>
         </table>
       </div>`;
@@ -251,7 +295,7 @@ const views = {
       }
       if (e.target.dataset.hist) {
         const h = await api(`/api/participants/${id}/weights`);
-        openModal("История веса", h.length ? `<ul>${h.map(x=>`<li>${esc(x.recorded_at)} — ${x.weight} кг</li>`).join("")}</ul>` : "<p>пусто</p>");
+        openModal("История веса", h.length ? `<ul>${h.map(x=>`<li>${esc(x.recorded_at)} — ${x.weight} кг</li>`).join("")}</ul>` : "<p>записей нет</p>");
       }
     };
   },
@@ -260,40 +304,40 @@ const views = {
     const cats = await api("/api/categories");
     $("#view").innerHTML = `
       <div class="toolbar">
-        <button class="btn" id="do-class">Разбить на категории</button>
-        <span class="hint">Пересобирает сетки. Результаты боёв будут сброшены.</span>
+        <button class="btn" id="do-class" type="button">Разбить на категории</button>
+        <span>После взвешивания нажмите эту кнопку. Старые сетки и результаты боёв соберутся заново.</span>
       </div>
       <div id="unplaced"></div>
-      <div class="card" style="padding:0;overflow:auto">
-        <table class="data">
-          <thead><tr><th>Возраст</th><th>Див.</th><th>Вес</th><th>n</th><th>Сетка</th><th></th></tr></thead>
-          <tbody>${cats.map(c => `<tr>
-            <td>${esc(c.age_label)}</td><td>${esc(c.division_code)}</td>
-            <td>до ${esc(c.weight_label)}</td><td>${c.n}</td><td>${esc(c.bracket_kind||"")}</td>
-            <td>
-              <button class="btn tiny sec" data-open="${c.id}">сетка</button>
-              <button class="btn tiny" data-redraw="${c.id}">пережеребить</button>
-            </td>
-          </tr>`).join("")}</tbody>
-        </table>
-      </div>`;
+      ${cats.length ? `<div class="table-wrap"><table class="data">
+        <thead><tr><th>Возраст</th><th>Дивизион</th><th>Вес</th><th>Человек</th><th>Вид сетки</th><th></th></tr></thead>
+        <tbody>${cats.map(c => `<tr>
+          <td>${esc(c.age_label)}</td><td>${esc(c.division_code)}</td>
+          <td>до ${esc(c.weight_label)} кг</td><td><b>${c.n}</b></td>
+          <td>${esc(c.bracket_title || kindRu(c.bracket_kind))}</td>
+          <td>
+            <button class="btn" data-open="${c.id}" type="button">Открыть сетку</button>
+            <button class="btn sec" data-redraw="${c.id}" type="button">Новый жребий</button>
+          </td>
+        </tr>`).join("")}</tbody>
+      </table></div>` : `<div class="empty">Категорий ещё нет. Сначала загрузите участников и нажмите «Разбить на категории».</div>`}`;
     $("#do-class").onclick = async () => {
-      if (cats.length && !confirm("Пересобрать категории и сетки?")) return;
+      if (cats.length && !confirm("Собрать категории заново? Результаты боёв сбросятся.")) return;
       const r = await api("/api/classify", { method:"POST", body:{} });
       const box = $("#unplaced");
       if (r.unplaced.length) {
-        box.innerHTML = `<div class="warn-box"><b>Не размещены (${r.unplaced.length})</b><ul>${
+        box.innerHTML = `<div class="warn-box"><b>Не удалось разместить: ${r.unplaced.length}</b><ul>${
           r.unplaced.map(u => `<li>${esc(u.participant.name)} — ${esc(u.reason)}</li>`).join("")
         }</ul></div>`;
-      } else box.innerHTML = `<p class="hint">Все взвешенные участники размещены.</p>`;
-      toast("Категории собраны: " + r.categories.length);
-      if (!r.unplaced.length) show("cats");
+      } else {
+        toast("Категории собраны: " + r.categories.length);
+        show("cats");
+      }
     };
     $("#view").onclick = async (e) => {
       if (e.target.dataset.open) { state.catId = +e.target.dataset.open; show("brackets"); }
-      if (e.target.dataset.redraw && confirm("Пережеребить категорию?")) {
+      if (e.target.dataset.redraw && confirm("Пережеребить только эту категорию?")) {
         await api(`/api/categories/${e.target.dataset.redraw}/redraw`, { method:"POST", body:{} });
-        toast("Новый жребий записан в журнал");
+        toast("Жребий обновлён");
         show("cats");
       }
     };
@@ -301,27 +345,31 @@ const views = {
 
   async brackets() {
     const cats = await api("/api/categories");
-    if (!cats.length) { $("#view").innerHTML = "<p>Сначала разбейте участников на категории.</p>"; return; }
+    if (!cats.length) {
+      $("#view").innerHTML = `<div class="empty">Сначала откройте «Категории» и нажмите «Разбить на категории».</div>`;
+      return;
+    }
     if (!state.catId) state.catId = cats[0].id;
     const d = await api("/api/categories/" + state.catId);
     const methods = (state.boot.methods||[]).map(m => `<option>${m}</option>`).join("");
+    const title = d.category.bracket_title || kindRu(d.category.bracket_kind);
     $("#view").innerHTML = `
       <div class="toolbar">
-        <select id="cat-sel">${cats.map(c => `<option value="${c.id}" ${c.id===state.catId?"selected":""}>${esc(c.age_label)} ${esc(c.division_code)} ${esc(c.weight_label)} (${c.n})</option>`).join("")}</select>
-        <button class="btn sec" id="br-redraw">Пережеребить</button>
+        <select id="cat-sel" style="max-width:420px">${cats.map(c =>
+          `<option value="${c.id}" ${c.id===state.catId?"selected":""}>до ${esc(c.weight_label)} кг · ${esc(c.age_label)} · ${esc(c.division_code)} · ${c.n} чел. · ${esc(c.bracket_title || kindRu(c.bracket_kind))}</option>`
+        ).join("")}</select>
+        <button class="btn sec" id="br-redraw" type="button">Новый жребий</button>
       </div>
-      <div class="grid two">
-        <div class="card">
-          <h2>Участники (контр. №)</h2>
-          <ol>${d.entries.map(e => `<li value="${e.control_number}">${esc(e.name)} <span class="hint">${esc(e.organization)}</span></li>`).join("")}</ol>
-        </div>
-        <div class="card">
-          <h2>Сетка</h2>
-          <div class="bracket-wrap" id="br"></div>
-        </div>
+      <div class="card">
+        <h2>${esc(d.category.age_label)} · дивизион ${esc(d.category.division_code)} · до ${esc(d.category.weight_label)} кг · ${esc(title)}</h2>
+        <div class="chips">${d.entries.map(e =>
+          `<span class="chip"><b>${e.control_number}.</b> ${esc(e.name)} <span style="color:#5c6570">${esc(e.organization)}</span></span>`
+        ).join("")}</div>
+        <div class="bracket-wrap" id="br"></div>
       </div>`;
     $("#cat-sel").onchange = () => { state.catId = +$("#cat-sel").value; show("brackets"); };
     $("#br-redraw").onclick = async () => {
+      if (!confirm("Пережеребить эту категорию? Результаты боёв сбросятся.")) return;
       await api(`/api/categories/${state.catId}/redraw`, { method:"POST", body:{} });
       show("brackets");
     };
@@ -331,43 +379,24 @@ const views = {
   async bouts() {
     const list = await api("/api/bouts");
     const methods = (state.boot.methods||[]).map(m => `<option>${m}</option>`).join("");
-    $("#view").innerHTML = `
-      <div class="card" style="padding:0;overflow:auto">
-        <table class="data">
-          <thead><tr><th>№</th><th>Категория</th><th>Тур</th><th>Синий</th><th>Красный</th><th>Победитель</th><th>Ринг</th><th></th></tr></thead>
-          <tbody>${list.map(b => `<tr>
-            <td>${b.bout_no??""}</td>
-            <td>${esc(b.age_label)} ${esc(b.division_code)} ${esc(b.weight_label)}</td>
-            <td>${esc(b.round_code)}</td>
-            <td class="blue">${b.blue?esc(b.blue.name):"—"}</td>
-            <td class="red">${b.red?esc(b.red.name):"—"}</td>
-            <td>${b.winner?esc(b.winner.name):(b.blue&&b.red?"":"ожидание")}</td>
-            <td><input data-ring="${b.id}" value="${b.ring??""}" style="width:48px"></td>
-            <td>${b.blue&&b.red&&!b.winner?`<button class="btn tiny" data-res="${b.id}">результат</button>`:""}
-                ${b.winner?`<button class="btn tiny sec" data-clr="${b.id}">сброс</button>`:""}</td>
-          </tr>`).join("")}</tbody>
-        </table>
-      </div>`;
-    $("#view").onclick = async (e) => {
-      const id = e.target.dataset.res || e.target.dataset.clr;
-      if (e.target.dataset.clr) { await api(`/api/bouts/${id}/clear`, { method:"POST", body:{} }); show("bouts"); }
-      if (e.target.dataset.res) {
-        const b = list.find(x => x.id == id);
-        openModal("Результат боя № "+b.bout_no, `
-          <p><span class="blue">${esc(b.blue.name)}</span> — <span class="red">${esc(b.red.name)}</span></p>
-          <label class="field">Победитель
-            <select id="w-id">
-              <option value="${b.blue.id}">синий: ${esc(b.blue.name)}</option>
-              <option value="${b.red.id}">красный: ${esc(b.red.name)}</option>
-            </select>
-          </label>
-          <label class="field">Характер<select id="w-m">${methods}</select></label>
-          <button class="btn" id="w-ok">Записать</button>`);
-        $("#w-ok").onclick = async () => {
-          await api(`/api/bouts/${id}/result`, { method:"POST", body:{ winner_entry_id:+$("#w-id").value, method:$("#w-m").value }});
-          closeModal(); show("bouts");
-        };
-      }
+    $("#view").innerHTML = list.length ? `
+      <div class="table-wrap"><table class="data">
+        <thead><tr><th>№</th><th>Категория</th><th>Тур</th><th>Синий угол</th><th>Красный угол</th><th>Победитель</th><th>Ринг</th><th></th></tr></thead>
+        <tbody>${list.map(b => `<tr>
+          <td><b>${b.bout_no??""}</b></td>
+          <td>до ${esc(b.weight_label)} · ${esc(b.division_code)}</td>
+          <td>${esc(b.round_title || roundRu(b.round_code))}</td>
+          <td class="blue">${b.blue?esc(b.blue.name):"—"}</td>
+          <td class="red">${b.red?esc(b.red.name):"—"}</td>
+          <td>${b.winner?esc(b.winner.name):(b.blue&&b.red?"ещё не записан":"ждём пару")}</td>
+          <td><input data-ring="${b.id}" value="${b.ring??""}" style="width:64px"></td>
+          <td>${b.blue&&b.red?`<button class="btn" data-res="${b.id}" type="button">${b.winner?"Исправить":"Записать"}</button>`:""}</td>
+        </tr>`).join("")}</tbody>
+      </table></div>` : `<div class="empty">Боёв нет. Сначала соберите категории.</div>`;
+    $("#view").onclick = (e) => {
+      if (!e.target.dataset.res) return;
+      const b = list.find(x => x.id == e.target.dataset.res);
+      resultForm(b, methods, () => show("bouts"));
     };
     $$("input[data-ring]").forEach(inp => inp.onchange = () => {
       api(`/api/bouts/${inp.dataset.ring}/schedule`, { method:"POST", body:{ ring: inp.value? +inp.value: null }});
@@ -380,26 +409,28 @@ const views = {
     $("#view").innerHTML = `
       <div class="grid two">
         <div class="card" style="padding:0;overflow:auto">
-          <h2 style="padding:12px 12px 0">Личные места</h2>
-          <table class="data"><thead><tr><th>Кат.</th><th>Место</th><th>ФИО</th><th>Орг.</th><th>Очки</th></tr></thead>
-          <tbody>${places.map(p => `<tr><td>${esc(p.age_label)} ${esc(p.division_code)} ${esc(p.weight_label)}</td>
-            <td>${p.place}</td><td>${esc(p.name)}</td><td>${esc(p.organization)}</td><td>${p.points}</td></tr>`).join("")}</tbody></table>
+          <h2 style="padding:16px 16px 0">Личные места</h2>
+          <table class="data"><thead><tr><th>Категория</th><th>Место</th><th>ФИО</th><th>Организация</th><th>Очки</th></tr></thead>
+          <tbody>${places.map(p => `<tr><td>до ${esc(p.weight_label)} · ${esc(p.division_code)}</td>
+            <td><b>${p.place}</b></td><td>${esc(p.name)}</td><td>${esc(p.organization)}</td><td>${p.points}</td></tr>`).join("")
+            || `<tr><td colspan="5">Мест ещё нет — запишите результаты боёв.</td></tr>`}</tbody></table>
         </div>
         <div class="card" style="padding:0;overflow:auto">
-          <h2 style="padding:12px 12px 0">Команды</h2>
+          <h2 style="padding:16px 16px 0">Командный зачёт</h2>
           <table class="data"><thead><tr><th>Место</th><th>Организация</th><th>Очки</th><th>Представитель</th></tr></thead>
-          <tbody>${teams.map(s => `<tr><td>${s.place}</td><td>${esc(s.organization)}</td><td>${s.points}</td>
-            <td><input data-org="${esc(s.organization)}" value="${esc(s.representative)}" style="width:140px"></td></tr>`).join("")}</tbody></table>
+          <tbody>${teams.map(s => `<tr><td><b>${s.place}</b></td><td>${esc(s.organization)}</td><td>${s.points}</td>
+            <td><input data-org="${esc(s.organization)}" value="${esc(s.representative)}" placeholder="ФИО"></td></tr>`).join("")
+            || `<tr><td colspan="4">Пока пусто.</td></tr>`}</tbody></table>
         </div>
       </div>
-      <div class="card" style="margin-top:14px;overflow:auto">
+      <div class="card" style="overflow:auto">
         <h2>Мандатная комиссия</h2>
         <table class="data">
           <thead><tr><th>Организация</th>${whead}<th>Итого</th></tr></thead>
-          <tbody>${man.rows.map(r => `<tr><td>${esc(r.organization)}</td>${man.weights.map(w=>`<td>${r.cells[w]||""}</td>`).join("")}<td>${r.total}</td></tr>`).join("")}
+          <tbody>${man.rows.map(r => `<tr><td>${esc(r.organization)}</td>${man.weights.map(w=>`<td>${r.cells[w]||""}</td>`).join("")}<td><b>${r.total}</b></td></tr>`).join("")}
           <tr><th>Итого</th>${man.weights.map(w=>`<th>${man.col_totals[w]||0}</th>`).join("")}<th>${man.grand_total}</th></tr></tbody>
         </table>
-        <p class="hint" style="padding-top:8px">${Object.entries(man.titles).map(([k,v])=>`${esc(k)}: ${v}`).join(" · ")}</p>
+        <p style="color:#5c6570;margin:12px 0 0">${Object.entries(man.titles).map(([k,v])=>`${esc(k)}: ${v}`).join(" · ")}</p>
       </div>`;
     $$("input[data-org]").forEach(inp => inp.onchange = () => {
       api("/api/teams/rep", { method:"POST", body:{ organization: inp.dataset.org, representative: inp.value }});
@@ -408,40 +439,39 @@ const views = {
 
   async docs() {
     const items = [
-      ["/print/weigh-in", "Протокол взвешивания и жеребьёвки"],
-      ["/print/mandate", "Протокол мандатной комиссии"],
-      ["/print/pairs", "Список пар"],
-      ["/print/corners", "Список боёв по углам"],
-      ["/print/brackets", "Сетки"],
-      ["/print/personal", "Личное первенство"],
-      ["/print/scorecards", "Судейские записки"],
-      ["/print/teams", "Командный протокол"],
-      ["/print/medals", "Призёры"],
-      ["/print/certificates", "Грамоты"],
-      ["/print/report", "Итоговый отчёт"],
-      ["/api/export/report.xlsx", "Выгрузка XLSX (мандат, команды, места)"],
-      ["/api/export", "Весь турнир JSON (резервная копия)"],
+      ["/print/weigh-in", "Протокол взвешивания", "Список с весом и жребием"],
+      ["/print/mandate", "Мандатная комиссия", "Клубы по весовым категориям"],
+      ["/print/pairs", "Список пар", "Кто с кем в первом круге"],
+      ["/print/corners", "Бои по углам", "Синий и красный угол, ринг"],
+      ["/print/brackets", "Сетки", "Все категории"],
+      ["/print/personal", "Личное первенство", "Места и очки"],
+      ["/print/scorecards", "Судейские записки", "По одному листу на бой"],
+      ["/print/teams", "Командный протокол", "Сумма очков клубов"],
+      ["/print/medals", "Призёры", "1–3 места"],
+      ["/print/certificates", "Грамоты", "Печать пачкой"],
+      ["/print/report", "Итоговый отчёт", "Всё сразу"],
+      ["/api/export/report.xlsx", "Файл Excel", "Мандат, команды, места"],
     ];
     $("#view").innerHTML = `
-      <p class="hint">Печатная форма открывается в новой вкладке — «Печать» браузера даёт PDF. Для мессенджера можно сохранить страницу как PDF или сделать снимок сетки.</p>
-      <div class="docs grid two">${items.map(([h,t]) => `<a href="${h}" target="_blank">${esc(t)}</a>`).join("")}</div>`;
+      <div class="docs">${items.map(([h,t,s]) => `<a href="${h}" target="_blank">${esc(t)}<small>${esc(s)}</small></a>`).join("")}</div>
+      <p style="margin-top:16px;color:#5c6570">Резервная копия всего турнира — кнопка «Сохранить копию» слева внизу.</p>`;
   },
 };
 
 function renderCatalogs() {
   const b = state.boot;
   $("#ages").innerHTML = b.age_groups.map(g =>
-    `<div class="row" style="margin-bottom:6px"><span>${esc(g.label)} (${g.year_from}–${g.year_to})</span>
-     <button class="btn tiny danger" data-del-age="${g.id}">×</button></div>`).join("") || "<p class='hint'>нет</p>";
+    `<div class="row" style="margin-bottom:8px"><span>${esc(g.label)} (${g.year_from}–${g.year_to})</span>
+     <button class="btn danger" data-del-age="${g.id}" type="button">Удалить</button></div>`).join("") || "<p>пока нет</p>";
   $("#divs").innerHTML = b.divisions.map(d =>
-    `<div class="row" style="margin-bottom:6px"><span>${esc(d.code)}</span>
-     <button class="btn tiny danger" data-del-div="${d.id}">×</button></div>`).join("") || "<p class='hint'>нет</p>";
+    `<div class="row" style="margin-bottom:8px"><span>${esc(d.code)}</span>
+     <button class="btn danger" data-del-div="${d.id}" type="button">Удалить</button></div>`).join("") || "<p>пока нет</p>";
   $("#wts").innerHTML = b.weights.map(w =>
-    `<div class="row" style="margin-bottom:6px"><span>до ${esc(w.label)}</span>
-     <button class="btn tiny danger" data-del-wt="${w.id}">×</button></div>`).join("") || "<p class='hint'>нет</p>";
+    `<div class="row" style="margin-bottom:8px"><span>до ${esc(w.label)} кг</span>
+     <button class="btn danger" data-del-wt="${w.id}" type="button">Удалить</button></div>`).join("") || "<p>пока нет</p>";
   $("#pts").innerHTML = b.point_rules.map((p,i) =>
-    `<div class="row" style="margin-bottom:6px">места <input data-pf="${i}" value="${p.place_from}" style="width:60px">–<input data-pt="${i}" value="${p.place_to}" style="width:60px">
-     очки <input data-pp="${i}" value="${p.points}" style="width:60px"></div>`).join("");
+    `<div class="row" style="margin-bottom:8px">места <input data-pf="${i}" value="${p.place_from}" style="width:70px">–<input data-pt="${i}" value="${p.place_to}" style="width:70px">
+     очки <input data-pp="${i}" value="${p.points}" style="width:70px"></div>`).join("");
   $("#ages").onclick = async (e) => { if (e.target.dataset.delAge) { await api("/api/age-groups/"+e.target.dataset.delAge,{method:"DELETE"}); await boot(); renderCatalogs(); } };
   $("#divs").onclick = async (e) => { if (e.target.dataset.delDiv) { await api("/api/divisions/"+e.target.dataset.delDiv,{method:"DELETE"}); await boot(); renderCatalogs(); } };
   $("#wts").onclick = async (e) => { if (e.target.dataset.delWt) { await api("/api/weights/"+e.target.dataset.delWt,{method:"DELETE"}); await boot(); renderCatalogs(); } };
@@ -462,18 +492,18 @@ async function savePoints() {
 function personForm(p) {
   const v = (k, d="") => p ? (p[k] ?? d) : d;
   openModal(p ? "Участник" : "Новый участник", `
-    <label class="field">Фамилия имя<input id="f-name" value="${esc(v("name"))}"></label>
+    <label class="field">Фамилия и имя<input id="f-name" value="${esc(v("name"))}"></label>
     <label class="field">Город, организация<input id="f-org" value="${esc(v("organization"))}"></label>
     <div class="grid two">
-      <label class="field">Разряд / дивизион<input id="f-rank" value="${esc(v("rank"))}"></label>
+      <label class="field">Разряд или дивизион<input id="f-rank" value="${esc(v("rank"))}" placeholder="КМС или А"></label>
       <label class="field">Год рождения<input id="f-year" value="${esc(v("birth_year"))}"></label>
     </div>
     <label class="field">Тренер<input id="f-coach" value="${esc(v("coach"))}"></label>
     <div class="grid two">
-      <label class="field">Вес<input id="f-w" value="${esc(v("weight"))}"></label>
-      <label class="field">Жребий (необяз.)<input id="f-draw" value="${esc(v("draw_number"))}"></label>
+      <label class="field">Вес, кг<input id="f-w" value="${esc(v("weight"))}"></label>
+      <label class="field">Номер жребия, если уже есть<input id="f-draw" value="${esc(v("draw_number"))}"></label>
     </div>
-    <button class="btn" id="f-ok">Сохранить</button>
+    <button class="btn" id="f-ok" type="button">Сохранить</button>
   `);
   $("#f-ok").onclick = async () => {
     const body = {
@@ -490,22 +520,26 @@ function personForm(p) {
 function renderBracket(el, d, methods) {
   const byRound = {};
   d.bouts.forEach(b => { (byRound[b.round_code] ||= []).push(b); });
-  const order = ["1/32","1/16","1/8","1/4","круг","1/2","финал","за бронзу","авто"];
+  const order = ["1/32","1/16","1/8","1/4","круг","1/2","финал","за бронзу","без боя","авто"];
   const cols = order.filter(k => byRound[k]);
   const who = (eid) => d.entries.find(e => e.id === eid);
+  const nameOf = (e) => e ? `${e.control_number}. ${e.name}` : "ещё нет пары";
   el.innerHTML = `<div class="cols">${cols.map(code => `
-    <div class="col"><div class="hint">${esc(code)}</div>
+    <div class="col">
+      <div class="col-title">${esc(roundRu(code))}</div>
       ${byRound[code].sort((a,b)=>a.slot-b.slot).map(b => {
         if (b.is_bye) {
           const p = who(b.blue_entry_id);
-          return `<div class="match"><header>проход</header><div class="p">${p?esc(p.control_number+". "+p.name):"—"}</div></div>`;
+          const label = (b.round_code === "авто" || b.round_code === "без боя") ? "1-е место без боя" : "проход дальше";
+          return `<div class="match"><header>${esc(label)}</header><div class="p">${esc(nameOf(p))}</div></div>`;
         }
         const bl = who(b.blue_entry_id), rd = who(b.red_entry_id);
         const cls = (eid) => !b.winner_entry_id ? "" : (eid===b.winner_entry_id ? "win" : "lose");
-        return `<div class="match" data-bout="${b.id}">
-          <header>бой ${b.bout_no||"—"}</header>
-          <div class="p blue ${cls(b.blue_entry_id)}">${bl?esc(bl.control_number+". "+bl.name):"…"}</div>
-          <div class="p red ${cls(b.red_entry_id)}">${rd?esc(rd.control_number+". "+rd.name):"…"}</div>
+        const ready = bl && rd;
+        return `<div class="match ${ready?"clickable":""}" data-bout="${b.id}">
+          <header><span>${b.bout_no ? "бой № "+b.bout_no : "пара"}</span><span>${ready ? "нажмите, чтобы записать" : ""}</span></header>
+          <div class="p blue-row ${cls(b.blue_entry_id)}"><span>${esc(nameOf(bl))}</span><span class="corner">СИНИЙ</span></div>
+          <div class="p red-row ${cls(b.red_entry_id)}"><span>${esc(nameOf(rd))}</span><span class="corner">КРАСНЫЙ</span></div>
         </div>`;
       }).join("")}
     </div>`).join("")}</div>`;
@@ -514,25 +548,11 @@ function renderBracket(el, d, methods) {
     if (!node) return;
     const b = d.bouts.find(x => x.id == node.dataset.bout);
     if (!b || !b.blue_entry_id || !b.red_entry_id) return;
-    const bl = who(b.blue_entry_id), rd = who(b.red_entry_id);
-    openModal("Бой № "+(b.bout_no||""), `
-      <label class="field">Победитель
-        <select id="w-id">
-          <option value="${bl.id}">синий: ${esc(bl.name)}</option>
-          <option value="${rd.id}">красный: ${esc(rd.name)}</option>
-        </select>
-      </label>
-      <label class="field">Характер<select id="w-m">${methods}</select></label>
-      <div class="row">
-        <button class="btn" id="w-ok">Записать</button>
-        ${b.winner_entry_id?'<button class="btn sec" id="w-clr">Сбросить</button>':""}
-      </div>`);
-    $("#w-ok").onclick = async () => {
-      await api(`/api/bouts/${b.id}/result`, { method:"POST", body:{ winner_entry_id:+$("#w-id").value, method:$("#w-m").value }});
-      closeModal(); show("brackets");
-    };
-    const clr = $("#w-clr");
-    if (clr) clr.onclick = async () => { await api(`/api/bouts/${b.id}/clear`, { method:"POST", body:{} }); closeModal(); show("brackets"); };
+    resultForm({
+      ...b,
+      blue: who(b.blue_entry_id),
+      red: who(b.red_entry_id),
+    }, methods, () => show("brackets"));
   };
 }
 

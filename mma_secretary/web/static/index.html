@@ -9,47 +9,42 @@
 <body>
   <aside class="rail">
     <div class="brand">
-      <div class="mark">ММА</div>
-      <div>
-        <div class="brand-name">Секретарь</div>
-        <div class="brand-sub" id="brand-sub">турнир</div>
-      </div>
+      <strong>Секретарь ММА</strong>
+      <span id="brand-sub">турнир</span>
     </div>
     <nav id="nav">
-      <button data-view="setup" class="active">Реквизиты</button>
-      <button data-view="people">Участники</button>
-      <button data-view="weigh">Взвешивание</button>
-      <button data-view="cats">Категории</button>
-      <button data-view="brackets">Сетки</button>
-      <button data-view="bouts">Бои</button>
-      <button data-view="results">Итоги</button>
-      <button data-view="docs">Документы</button>
+      <button data-view="setup" class="active"><i>1</i> Реквизиты</button>
+      <button data-view="people"><i>2</i> Участники</button>
+      <button data-view="weigh"><i>3</i> Взвешивание</button>
+      <button data-view="cats"><i>4</i> Категории</button>
+      <button data-view="brackets"><i>5</i> Сетки</button>
+      <button data-view="bouts"><i>6</i> Бои</button>
+      <button data-view="results"><i>7</i> Итоги</button>
+      <button data-view="docs"><i>8</i> Документы</button>
     </nav>
     <div class="rail-foot">
-      <button id="btn-undo" class="ghost">Отменить</button>
-      <button id="btn-backup" class="ghost">Резервная копия</button>
-      <label class="ghost file-btn">Открыть<input type="file" id="file-import" accept=".json" hidden></label>
+      <button id="btn-undo" type="button">Отменить последнее</button>
+      <button id="btn-backup" type="button">Сохранить копию</button>
+      <label class="file-btn">Открыть копию<input type="file" id="file-import" accept=".json" hidden></label>
     </div>
   </aside>
 
-  <main>
+  <div class="wrap">
     <header class="top">
       <div>
         <h1 id="page-title">Реквизиты</h1>
-        <p id="page-hint" class="hint">Название, судьи, возрасты, дивизионы и веса</p>
+        <p id="page-hint">Название турнира, судьи, возрасты, дивизионы и веса</p>
       </div>
-      <div class="top-actions">
-        <span id="save-dot" class="saved">сохранено</span>
-      </div>
+      <span id="save-dot" class="saved">сохранено</span>
     </header>
     <section id="view"></section>
-  </main>
+  </div>
 
   <div id="modal" class="modal hidden" role="dialog">
     <div class="modal-card">
       <header>
         <h3 id="modal-title"></h3>
-        <button class="icon" id="modal-close">×</button>
+        <button class="icon" id="modal-close" type="button" aria-label="Закрыть">×</button>
       </header>
       <div id="modal-body"></div>
     </div>

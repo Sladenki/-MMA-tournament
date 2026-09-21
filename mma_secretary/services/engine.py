@@ -16,6 +16,7 @@ from mma_secretary.core.models import (
     PointRule,
     WeightClass,
 )
+from mma_secretary.core.labels import bracket_kind_ru, round_ru
 from mma_secretary.core.normalize import (
     format_kg,
     looks_like_duplicate,
@@ -439,10 +440,14 @@ class TournamentService:
                ORDER BY ag.sort_order, d.sort_order, w.limit_kg""",
             (self.tid(),),
         ).fetchall()
-        return [dict(r) for r in rows]
+        return [self._decorate_category(dict(r)) for r in rows]
+
+    def _decorate_category(self, row: dict) -> dict:
+        row["bracket_title"] = bracket_kind_ru(row.get("bracket_kind"))
+        return row
 
     def _category_dict(self, cid: int) -> dict:
-        return dict(
+        return self._decorate_category(dict(
             self.conn.execute(
                 """SELECT c.*, ag.label AS age_label, d.code AS division_code,
                           w.label AS weight_label, w.limit_kg,
@@ -454,7 +459,7 @@ class TournamentService:
                    WHERE c.id=?""",
                 (cid,),
             ).fetchone()
-        )
+        ))
 
     def category_detail(self, cid: int) -> dict:
         cat = self._category_dict(cid)
@@ -682,6 +687,7 @@ class TournamentService:
             r["blue"] = fighter(r.get("blue_entry_id"))
             r["red"] = fighter(r.get("red_entry_id"))
             r["winner"] = fighter(r.get("winner_entry_id"))
+            r["round_title"] = round_ru(r.get("round_code"))
 
     def _renumber_bouts(self) -> None:
         rows = self.conn.execute(
