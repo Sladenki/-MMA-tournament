@@ -6,7 +6,7 @@ const state = { view: "archives", boot: null, sort: "seq", catId: null };
 const titles = {
   archives: ["Турниры", "Сохраните текущие данные, начните пустой турнир или откройте другую копию."],
   setup: ["Реквизиты", "Название турнира, судьи, возрасты (например 2018-2019), дивизионы и веса"],
-  people: ["Участники", "Добавьте заявку вручную или загрузите таблицу. Отчество программа отрежет сама."],
+  people: ["Участники", ""],
   weigh: ["Взвешивание", "Впишите фактический вес и нажмите «Записать». Запятая и точка оба подходят."],
   cats: ["Категории", "Разбейте список по возрасту, дивизиону и весу. Кто не попал — будет в жёлтом списке, а не пропадёт."],
   brackets: ["Сетки", "Выберите категорию и нажмите на пару, чтобы записать победителя. Он сам пойдёт дальше."],
@@ -201,16 +201,25 @@ function enhanceSelects(root = document) {
 }
 
 document.addEventListener("click", (e) => { if (!e.target.closest(".dd")) closeAllDd(); });
-document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeAllDd(); });
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  if ($(".dd.open")) { closeAllDd(); return; }
+  if (!$("#modal").classList.contains("hidden")) closeModal();
+});
 window.addEventListener("scroll", () => closeAllDd(), true);
 window.addEventListener("resize", () => closeAllDd());
 
-function openModal(title, html) {
+function openModal(title, html, extraClass = "") {
+  const card = $(".modal-card");
+  card.className = "modal-card" + (extraClass ? " " + extraClass : "");
   $("#modal-title").textContent = title;
   $("#modal-body").innerHTML = html;
   $("#modal").classList.remove("hidden");
 }
-function closeModal() { $("#modal").classList.add("hidden"); }
+function closeModal() {
+  $("#modal").classList.add("hidden");
+  $(".modal-card").className = "modal-card";
+}
 $("#modal-close").onclick = closeModal;
 $("#modal").addEventListener("click", e => { if (e.target.id === "modal") closeModal(); });
 
@@ -238,6 +247,7 @@ async function show(view) {
   $$("#nav button").forEach(b => b.classList.toggle("active", b.dataset.view === view));
   $("#page-title").textContent = titles[view][0];
   $("#page-hint").textContent = titles[view][1];
+  $("#page-hint").hidden = !titles[view][1];
   $("#view").innerHTML = "<p>Загрузка…</p>";
   try { await views[view](); enhanceSelects($("#view")); } catch (e) { $("#view").innerHTML = `<div class="warn-box">${esc(e.message)}</div>`; }
 }
@@ -380,21 +390,28 @@ const views = {
   async people() {
     const list = await api("/api/participants?sort=" + state.sort);
     $("#view").innerHTML = `
-      <div class="toolbar">
-        <div class="stat"><b>${list.length}</b><span>в списке</span></div>
-        <input id="q" placeholder="Найти по фамилии или клубу" style="max-width:280px">
-        <select id="sort">
-          <option value="seq">по номеру</option>
-          <option value="team">команда → год → жребий</option>
-          <option value="weight">по весу</option>
-          <option value="year_weight">год → вес</option>
-          <option value="alpha">по алфавиту</option>
-          <option value="draw">по жребию</option>
-        </select>
-        <button class="btn" id="p-add" type="button">Добавить участника</button>
-        <label class="btn sec">Загрузить Excel<input type="file" id="p-imp" accept=".xlsx,.xlsm,.csv" hidden></label>
-        <a class="btn sec" href="/api/export/participants.xlsx">Скачать список</a>
-        <button class="btn sec" id="p-demo" type="button">Учебный список (14 человек)</button>
+      <div class="people-bar">
+        <div class="people-tools">
+          <div class="stat"><b>${list.length}</b><span>в списке</span></div>
+          <label class="search-box">
+            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3-3"/></svg>
+            <input id="q" placeholder="Найти по фамилии или клубу">
+          </label>
+          <select id="sort">
+            <option value="seq">по номеру</option>
+            <option value="team">команда → год → жребий</option>
+            <option value="weight">по весу</option>
+            <option value="year_weight">год → вес</option>
+            <option value="alpha">по алфавиту</option>
+            <option value="draw">по жребию</option>
+          </select>
+        </div>
+        <div class="people-actions">
+          <button class="btn" id="p-add" type="button"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg> Добавить</button>
+          <label class="btn sec"><svg viewBox="0 0 24 24"><path d="M12 15V4M8 8l4-4 4 4"/><path d="M5 20h14"/></svg> Загрузить Excel<input type="file" id="p-imp" accept=".xlsx,.xlsm,.csv" hidden></label>
+          <a class="btn sec" href="/api/export/participants.xlsx"><svg viewBox="0 0 24 24"><path d="M12 4v11M8 11l4 4 4-4"/><path d="M5 20h14"/></svg> Скачать список</a>
+          <button class="btn sec" id="p-demo" type="button"><svg viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg> Учебный список</button>
+        </div>
       </div>
       <div class="table-wrap">
         <table class="data" id="ptable">
@@ -411,8 +428,10 @@ const views = {
         <td><b>${esc(p.name)}</b></td><td>${p.gender==="жен"?"жен":"муж"}</td><td>${esc(p.organization)}</td>
         <td>${esc(p.rank)}</td><td>${p.birth_year??""}</td><td>${esc(p.coach)}</td>
         <td>${p.weight ?? "—"}</td><td><span class="badge ${statusClass(p.status)}">${esc(p.status)}</span></td>
-        <td class="actions"><button class="btn sm sec" data-edit="${p.id}" type="button">Изменить</button>
-            <button class="btn sm danger" data-del="${p.id}" type="button">Удалить</button></td>
+        <td class="actions">
+          <button class="btn sm sec" data-edit="${p.id}" type="button"><svg viewBox="0 0 24 24"><path d="M4 20h4l10-10-4-4L4 16v4z"/><path d="M13 7l4 4"/></svg> Изменить</button>
+          <button class="btn sm danger" data-del="${p.id}" type="button"><svg viewBox="0 0 24 24"><path d="M5 7h14M10 7V5h4v2M8 7l1 12h6l1-12"/></svg> Удалить</button>
+        </td>
       </tr>`).join("") || `<tr><td colspan="11">Список пуст. Добавьте человека или загрузите Excel.</td></tr>`;
     };
     draw(list);
@@ -428,7 +447,9 @@ const views = {
       } catch (err) { toast(err.message, "err"); }
     };
     tbody.onclick = async (e) => {
-      const del = e.target.dataset.del, ed = e.target.dataset.edit;
+      const hit = e.target.closest("[data-del],[data-edit]");
+      if (!hit) return;
+      const del = hit.dataset.del, ed = hit.dataset.edit;
       if (del && confirm("Удалить участника?")) { await api("/api/participants/"+del, { method:"DELETE" }); show("people"); }
       if (ed) personForm(list.find(p => p.id == ed));
     };
@@ -720,46 +741,121 @@ function manualDrawForm(d) {
   };
 }
 
+function bindChoice(root, initial) {
+  const set = (val) => {
+    root.dataset.value = val;
+    $$("button[data-v]", root).forEach(b => b.classList.toggle("on", b.dataset.v === val));
+  };
+  root.addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-v]");
+    if (b) set(b.dataset.v);
+  });
+  set(initial);
+}
+
 function personForm(p) {
   const v = (k, d="") => p ? (p[k] ?? d) : d;
-  openModal(p ? "Участник" : "Новый участник", `
-    <label class="field">Фамилия и имя<input id="f-name" value="${esc(v("name"))}"></label>
-    <label class="field">Город, организация<input id="f-org" value="${esc(v("organization"))}"></label>
-    <div class="grid two">
-      <label class="field">Пол
-        <select id="f-gender">
-          <option value="муж" ${v("gender","муж")==="жен"?"":"selected"}>мужской</option>
-          <option value="жен" ${v("gender")==="жен"?"selected":""}>женский</option>
-        </select>
+  const gender = v("gender", "муж") === "жен" ? "жен" : "муж";
+  const status = v("status", "заявлен") || "заявлен";
+  const statuses = ["заявлен", "взвешен", "допущен", "снят", "не явился"];
+  const title = p ? (p.seq != null ? `Участник № ${p.seq}` : "Изменить участника") : "Новый участник";
+  openModal(title, `
+    <div class="form-sec">
+      <h4>Кто</h4>
+      <label class="field">Фамилия и имя
+        <input id="f-name" value="${esc(v("name"))}" autocomplete="off" placeholder="Иванов Иван">
       </label>
-      <label class="field">Дивизион
-        <select id="f-div">
-          <option value="">не указан</option>
-          ${(state.boot.divisions||[]).map(d => `<option value="${d.id}" ${String(v("division_id"))===String(d.id)?"selected":""}>${esc(d.code)}</option>`).join("")}
-        </select>
+      <div class="grid two">
+        <label class="field">Город, организация
+          <input id="f-org" value="${esc(v("organization"))}" autocomplete="off" placeholder="Калининград, клуб">
+        </label>
+        <label class="field">Тренер
+          <input id="f-coach" value="${esc(v("coach"))}" autocomplete="off">
+        </label>
+      </div>
+    </div>
+    <div class="form-sec">
+      <h4>Категория</h4>
+      <div class="grid two">
+        <label class="field">Пол
+          <div class="seg" id="f-gender">
+            <button type="button" data-v="муж">Мужской</button>
+            <button type="button" data-v="жен">Женский</button>
+          </div>
+        </label>
+        <label class="field">Год рождения
+          <input id="f-year" value="${esc(v("birth_year"))}" inputmode="numeric" placeholder="2008">
+        </label>
+      </div>
+      <div class="grid two">
+        <label class="field">Дивизион
+          <select id="f-div">
+            <option value="">не указан</option>
+            ${(state.boot.divisions||[]).map(d => `<option value="${d.id}" ${String(v("division_id"))===String(d.id)?"selected":""}>${esc(d.code)}</option>`).join("")}
+          </select>
+        </label>
+        <label class="field">Разряд
+          <input id="f-rank" value="${esc(v("rank"))}" list="f-ranks" placeholder="КМС, 1, б/р" autocomplete="off">
+          <datalist id="f-ranks">
+            <option value="ЗМС"><option value="МСМК"><option value="МС"><option value="КМС">
+            <option value="1"><option value="2"><option value="3"><option value="б/р">
+          </datalist>
+        </label>
+      </div>
+    </div>
+    <div class="form-sec">
+      <h4>На турнире</h4>
+      <div class="grid two">
+        <label class="field">Вес, кг
+          <input id="f-w" value="${esc(v("weight"))}" inputmode="decimal" placeholder="65,8">
+        </label>
+        <label class="field">Жребий
+          <input id="f-draw" value="${esc(v("draw_number"))}" inputmode="numeric" placeholder="вручную или после жеребьёвки">
+        </label>
+      </div>
+      <label class="field">Статус
+        <div class="pills" id="f-status">
+          ${statuses.map(s => `<button type="button" data-v="${s}">${s}</button>`).join("")}
+        </div>
       </label>
     </div>
-    <div class="grid two">
-      <label class="field">Разряд<input id="f-rank" value="${esc(v("rank"))}" placeholder="КМС, 1, б/р"></label>
-      <label class="field">Год рождения<input id="f-year" value="${esc(v("birth_year"))}"></label>
+    <div class="form-actions">
+      <button class="btn sec" id="f-cancel" type="button"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg> Отмена</button>
+      <button class="btn" id="f-ok" type="button"><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg> Сохранить</button>
     </div>
-    <label class="field">Тренер<input id="f-coach" value="${esc(v("coach"))}"></label>
-    <div class="grid two">
-      <label class="field">Вес, кг<input id="f-w" value="${esc(v("weight"))}"></label>
-      <label class="field">Жребий<input id="f-draw" value="${esc(v("draw_number"))}" inputmode="numeric" placeholder="можно вручную"></label>
-    </div>
-    <button class="btn" id="f-ok" type="button">Сохранить</button>
-  `);
+  `, "wide");
   enhanceSelects($("#modal-body"));
-  $("#f-ok").onclick = async () => {
+  bindChoice($("#f-gender"), gender);
+  bindChoice($("#f-status"), status);
+  const nameEl = $("#f-name");
+  nameEl.focus();
+  nameEl.select?.();
+  const save = async () => {
+    const name = nameEl.value.trim();
+    if (!name) { toast("Укажите фамилию и имя", "err"); nameEl.focus(); return; }
     const body = {
-      name: $("#f-name").value, organization: $("#f-org").value, rank: $("#f-rank").value,
-      birth_year: $("#f-year").value, coach: $("#f-coach").value, weight: $("#f-w").value,
-      draw_number: $("#f-draw").value, gender: $("#f-gender").value, division_id: $("#f-div").value,
+      name,
+      organization: $("#f-org").value,
+      rank: $("#f-rank").value,
+      birth_year: $("#f-year").value,
+      coach: $("#f-coach").value,
+      weight: $("#f-w").value,
+      draw_number: $("#f-draw").value,
+      gender: $("#f-gender").dataset.value || "муж",
+      division_id: $("#f-div").value,
+      status: $("#f-status").dataset.value || "заявлен",
     };
     const r = p ? await api("/api/participants/"+p.id, { method:"PUT", body }) : await api("/api/participants", { method:"POST", body });
     if (r.duplicate_warning) toast("Похожий участник уже есть", "err");
     closeModal(); show("people");
+  };
+  $("#f-ok").onclick = save;
+  $("#f-cancel").onclick = closeModal;
+  $("#modal-body").onkeydown = (e) => {
+    if (e.key === "Enter" && e.target.tagName !== "TEXTAREA" && !e.target.closest(".dd")) {
+      e.preventDefault();
+      save();
+    }
   };
 }
 
