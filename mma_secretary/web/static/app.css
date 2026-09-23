@@ -51,9 +51,14 @@ nav button {
   font: inherit; font-size: 14px; cursor: pointer;
 }
 nav button i {
-  width: 22px; height: 22px; border-radius: 50%;
-  display: grid; place-items: center; font-style: normal; font-size: 12px; font-weight: 700;
+  width: 22px; height: 22px; border-radius: 6px;
+  display: grid; place-items: center; flex-shrink: 0;
   background: rgba(255,255,255,.12);
+}
+nav button i svg {
+  width: 14px; height: 14px;
+  stroke: currentColor; fill: none; stroke-width: 2;
+  stroke-linecap: round; stroke-linejoin: round;
 }
 nav button:hover { background: var(--navy-2); }
 nav button.active { background: #fff; color: var(--navy); font-weight: 600; }
@@ -74,9 +79,15 @@ nav button.active i { background: var(--red); color: #fff; }
   width: 100%;
   max-width: 100%;
   min-width: 0;
+  display: flex; align-items: center; justify-content: center; gap: 7px;
   border: 1px solid rgba(255,255,255,.25); background: transparent; color: #fff;
-  padding: 8px 10px; border-radius: 8px; font: inherit; cursor: pointer; text-align: center;
+  padding: 8px 10px; border-radius: 8px; font: inherit; font-size: 13px; cursor: pointer; text-align: center;
   text-decoration: none;
+}
+.rail-foot svg {
+  width: 15px; height: 15px; flex-shrink: 0;
+  stroke: currentColor; fill: none; stroke-width: 2;
+  stroke-linecap: round; stroke-linejoin: round;
 }
 .rail-foot button:hover, .file-btn:hover { background: var(--navy-2); color: #fff; }
 .file-btn { display: block; }

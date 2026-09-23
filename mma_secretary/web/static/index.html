@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Секретарь ММА</title>
-  <link rel="stylesheet" href="/static/app.css?v=7">
+  <link rel="stylesheet" href="/static/app.css?v=8">
 </head>
 <body>
   <aside class="rail">
@@ -13,19 +13,19 @@
       <span id="brand-sub">турнир</span>
     </div>
     <nav id="nav">
-      <button data-view="setup" class="active"><i>1</i> Реквизиты</button>
-      <button data-view="people"><i>2</i> Участники</button>
-      <button data-view="weigh"><i>3</i> Взвешивание</button>
-      <button data-view="cats"><i>4</i> Категории</button>
-      <button data-view="brackets"><i>5</i> Сетки</button>
-      <button data-view="bouts"><i>6</i> Бои</button>
-      <button data-view="results"><i>7</i> Итоги</button>
-      <button data-view="docs"><i>8</i> Документы</button>
+      <button data-view="setup" class="active"><i><svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></i> Реквизиты</button>
+      <button data-view="people"><i><svg viewBox="0 0 24 24"><path d="M16 19v-1a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v1"/><circle cx="10" cy="8" r="3"/><path d="M20 19v-1a3.5 3.5 0 0 0-2.5-3.3M16.5 5.5a2.8 2.8 0 0 1 0 5"/></svg></i> Участники</button>
+      <button data-view="weigh"><i><svg viewBox="0 0 24 24"><path d="M12 4v3M7 21h10a2 2 0 0 0 2-2v-3H5v3a2 2 0 0 0 2 2z"/><path d="M5 16l2.2-8.2A3 3 0 0 1 10.1 6h3.8a3 3 0 0 1 2.9 1.8L19 16"/><circle cx="12" cy="12" r="1.4"/></svg></i> Взвешивание</button>
+      <button data-view="cats"><i><svg viewBox="0 0 24 24"><path d="M4 8h7l2 2h7v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><path d="M8 8V6a1 1 0 0 1 1-1h4l2 2"/></svg></i> Категории</button>
+      <button data-view="brackets"><i><svg viewBox="0 0 24 24"><path d="M5 6h5v5H5zM5 13h5v5H5zM14 9.5h5V14h-5z"/><path d="M10 8.5h2v7h2"/></svg></i> Сетки</button>
+      <button data-view="bouts"><i><svg viewBox="0 0 24 24"><circle cx="8" cy="12" r="4"/><circle cx="16" cy="12" r="4"/><path d="M10.5 12h3"/></svg></i> Бои</button>
+      <button data-view="results"><i><svg viewBox="0 0 24 24"><path d="M8 20h8M12 16v4M7 5h10v5a5 5 0 0 1-10 0V5z"/><path d="M7 7H5a3 3 0 0 0 3 4M17 7h2a3 3 0 0 1-3 4"/></svg></i> Итоги</button>
+      <button data-view="docs"><i><svg viewBox="0 0 24 24"><path d="M7 4h7l5 5v11a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"/><path d="M14 4v5h5M9 13h6M9 17h4"/></svg></i> Документы</button>
     </nav>
     <div class="rail-foot">
-      <button id="btn-undo" type="button">Отменить последнее</button>
-      <button id="btn-backup" type="button">Сохранить копию</button>
-      <label class="file-btn">Открыть копию<input type="file" id="file-import" accept=".json" hidden></label>
+      <button id="btn-undo" type="button"><svg viewBox="0 0 24 24"><path d="M9 7L4 12l5 5"/><path d="M4 12h10a6 6 0 0 0 6-6"/></svg> Отменить</button>
+      <button id="btn-backup" type="button"><svg viewBox="0 0 24 24"><path d="M12 4v10M8 10l4 4 4-4"/><path d="M5 19h14"/></svg> Сохранить копию</button>
+      <label class="file-btn"><svg viewBox="0 0 24 24"><path d="M12 14V4M8 8l4-4 4 4"/><path d="M5 19h14"/></svg> Открыть копию<input type="file" id="file-import" accept=".json" hidden></label>
       <a class="about-link" href="/static/about.html" target="_blank" rel="noopener">Автор</a>
     </div>
   </aside>
