@@ -28,7 +28,11 @@ h2 { font-size: 15px; text-align: center; margin: 16px 0 8px; }
 table { border-collapse: collapse; width: 100%; font-size: 11px; }
 th, td { border: 1px solid #222; padding: 3px 5px; }
 th { background: #eee; }
-.sig { margin-top: 28px; display: flex; justify-content: space-between; font-size: 12px; }
+.sig { margin-top: 36px; display: flex; justify-content: space-between; gap: 48px; font-size: 12px; }
+.sig-block { min-width: 260px; }
+.sig-row { display: flex; align-items: flex-end; gap: 10px; }
+.sig-line { flex: 1; min-width: 120px; border-bottom: 1px solid #111; height: 16px; }
+.sig-note { display: block; font-size: 10px; color: #555; text-align: center; width: 140px; margin-left: auto; }
 .page-break { page-break-before: always; }
 .blue { color: #123a8a; }
 .red { color: #9b1c1c; }
@@ -237,19 +241,21 @@ def scorecards(svc: TournamentService) -> str:
 
 def brackets_html(svc: TournamentService) -> str:
     t = svc.get_tournament()
-    parts = [_header(t) + "<h2>Сетки по категориям</h2>"]
+    parts = []
     for cat in svc.list_categories():
         if cat["n"] == 0:
             continue
         detail = svc.category_detail(cat["id"])
         svg = bracket_svg(detail)
         parts.append(
-            f"<section class='page-break'><h2>{escape(cat['age_label'])} · {escape(cat.get('gender_label') or '')} · "
-            f"{escape(cat['division_code'])} · до {escape(cat['weight_label'])} кг ({cat['n']})</h2>{svg}</section>"
+            f"<section class='page-break'>{_header(t)}"
+            f"<h2>{escape(cat['age_label'])} · {escape(cat.get('gender_label') or '')} · "
+            f"{escape(cat['division_code'])} · до {escape(cat['weight_label'])} кг ({cat['n']})</h2>"
+            f"{_sigs(t)}{svg}{_sigs(t)}</section>"
         )
-    if len(parts) > 1:
-        parts[1] = parts[1].replace(" page-break", "", 1)
-    return wrap("Сетки", "".join(parts), landscape=True)
+    if parts:
+        parts[0] = parts[0].replace(" page-break", "", 1)
+    return wrap("Сетки", "".join(parts) or "<p>Сеток ещё нет</p>", landscape=True)
 
 
 def full_report(svc: TournamentService) -> str:
@@ -276,8 +282,14 @@ def full_report(svc: TournamentService) -> str:
 def _sigs(t: dict) -> str:
     return f"""
     <div class="sig">
-      <div>Главный судья ____________ {escape(t.get("chief_referee") or "")}</div>
-      <div>Главный секретарь ____________ {escape(t.get("chief_secretary") or "")}</div>
+      <div class="sig-block">
+        <div class="sig-row">Главный судья <span class="sig-line"></span> {escape(t.get("chief_referee") or "")}</div>
+        <small class="sig-note">подпись</small>
+      </div>
+      <div class="sig-block">
+        <div class="sig-row">Главный секретарь <span class="sig-line"></span> {escape(t.get("chief_secretary") or "")}</div>
+        <small class="sig-note">подпись</small>
+      </div>
     </div>
     """
 

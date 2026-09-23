@@ -315,7 +315,10 @@ def x_rep():
 
 
 def _html(name: str, fn):
-    return HTMLResponse(fn(svc), headers={"Content-Disposition": f"inline; filename={name}.html"})
+    return HTMLResponse(
+        fn(svc),
+        headers={"Cache-Control": "no-store", "Content-Type": "text/html; charset=utf-8"},
+    )
 
 
 @app.get("/print/weigh-in")
