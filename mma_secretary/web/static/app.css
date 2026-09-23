@@ -26,7 +26,7 @@ body {
 }
 
 .rail {
-  width: 240px;
+  width: 280px;
   flex-shrink: 0;
   background: var(--navy);
   color: #f4f7fb;
@@ -40,7 +40,7 @@ body {
   border-bottom: 1px solid rgba(255,255,255,.12);
   margin-bottom: 8px;
 }
-.brand strong { display: block; font-size: 15px; line-height: 1.2; }
+.brand strong { display: block; font-size: 20px; line-height: 1.2; }
 .brand span { display: none; }
 
 nav { display: flex; flex-direction: column; gap: 3px; }
@@ -48,7 +48,7 @@ nav button {
   display: flex; align-items: center; gap: 8px;
   width: 100%; border: 0; background: transparent; color: #e8eef5;
   text-align: left; padding: 7px 8px; border-radius: 8px;
-  font: inherit; font-size: 14px; cursor: pointer;
+  font: inherit; font-size: 18px; cursor: pointer;
 }
 nav button i {
   width: 22px; height: 22px; border-radius: 6px;
@@ -81,7 +81,7 @@ nav button.active i { background: var(--red); color: #fff; }
   min-width: 0;
   display: flex; align-items: center; justify-content: center; gap: 7px;
   border: 1px solid rgba(255,255,255,.25); background: transparent; color: #fff;
-  padding: 8px 10px; border-radius: 8px; font: inherit; font-size: 13px; cursor: pointer; text-align: center;
+  padding: 9px 10px; border-radius: 8px; font: inherit; font-size: 16px; cursor: pointer; text-align: center;
   text-decoration: none;
 }
 .rail-foot svg {
@@ -99,7 +99,7 @@ a.about-link {
   border: 0;
   background: none;
   color: #8fa3b8;
-  font-size: 12px;
+  font-size: 15px;
   letter-spacing: .04em;
   text-align: center;
   text-decoration: none;
