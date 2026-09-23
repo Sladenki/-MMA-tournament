@@ -1,10 +1,11 @@
 const $ = (s, r=document) => r.querySelector(s);
 const $$ = (s, r=document) => [...r.querySelectorAll(s)];
 
-const state = { view: "setup", boot: null, sort: "seq", catId: null };
+const state = { view: "archives", boot: null, sort: "seq", catId: null };
 
 const titles = {
-  setup: ["Реквизиты", "Сначала заполните турнир. Потом можно сразу переходить к участникам."],
+  archives: ["Турниры", "Сохраните текущие данные, начните пустой турнир или откройте другую копию."],
+  setup: ["Реквизиты", "Название турнира, судьи, возрасты, дивизионы и веса"],
   people: ["Участники", "Добавьте заявку вручную или загрузите таблицу. Отчество программа отрежет сама."],
   weigh: ["Взвешивание", "Впишите фактический вес и нажмите «Записать». Запятая и точка оба подходят."],
   cats: ["Категории", "Разбейте список по возрасту, дивизиону и весу. Кто не попал — будет в жёлтом списке, а не пропадёт."],
@@ -136,7 +137,63 @@ function resultForm(b, methodsHtml, onDone) {
   if (clr) clr.onclick = async () => { await api(`/api/bouts/${b.id}/clear`, { method:"POST", body:{} }); closeModal(); onDone(); };
 }
 
+async function renderArchives() {
+  const t = state.boot.tournament;
+  let saves = [];
+  let apiOk = true;
+  try { saves = await api("/api/saves"); } catch { apiOk = false; }
+  $("#view").innerHTML = `
+    <div class="card">
+      <p style="margin:0 0 8px">Сейчас открыто: <b>${esc(t.name || "без названия")}</b>${t.date ? " · " + esc(t.date) : ""}</p>
+      ${apiOk ? "" : `<div class="warn-box">Сервер старый и не умеет копии. Закройте чёрное окно, запустите start.bat заново, затем обновите страницу.</div>`}
+      <div class="row" style="margin-bottom:12px">
+        <input id="save-name" placeholder="Название копии, например Калининград 14.09.2024" style="max-width:360px">
+        <button class="btn" id="save-now" type="button">Сохранить этот турнир</button>
+        <button class="btn sec" id="new-now" type="button">Начать с нуля</button>
+      </div>
+      ${saves.length ? `<table class="data"><thead><tr><th>Название</th><th>Когда сохранили</th><th>Участников</th><th></th></tr></thead>
+      <tbody>${saves.map(s => `<tr>
+        <td><b>${esc(s.name)}</b></td>
+        <td>${esc((s.saved_at || "").replace("T", " ").replace("+00:00",""))}</td>
+        <td>${s.participants}</td>
+        <td>
+          <button class="btn" data-load="${esc(s.id)}" type="button">Открыть</button>
+          <button class="btn danger" data-forget="${esc(s.id)}" type="button">Удалить копию</button>
+        </td>
+      </tr>`).join("")}</tbody></table>` : `<p style="color:#5c6570;margin:0">Сохранённых копий пока нет. Нажмите «Сохранить этот турнир», чтобы оставить учебный список с Excel.</p>`}
+    </div>`;
+  $("#save-name").value = t.name || "";
+  $("#save-now").onclick = async () => {
+    try {
+      const r = await api("/api/saves", { method: "POST", body: { name: $("#save-name").value } });
+      toast("Сохранено: " + r.name);
+      show("archives");
+    } catch (e) { toast(e.message, "err"); }
+  };
+  $("#new-now").onclick = async () => {
+    if (!confirm("Начать с нуля? Текущий список и сетки пропадут. Справочник весов останется. Если нужно — сначала нажмите «Сохранить этот турнир».")) return;
+    await api("/api/tournament/new", { method: "POST", body: {} });
+    toast("Пустой турнир");
+    await boot();
+    show("archives");
+  };
+  $("#view").onclick = async (e) => {
+    if (e.target.dataset.load) {
+      if (!confirm("Открыть эту копию? То, что сейчас на экране, заменится. Сначала сохраните, если оно ещё нужно.")) return;
+      await api("/api/saves/" + encodeURIComponent(e.target.dataset.load) + "/load", { method: "POST", body: {} });
+      toast("Турнир открыт");
+      await boot();
+      show("archives");
+    }
+    if (e.target.dataset.forget && confirm("Удалить только сохранённую копию? Открытый турнир не тронется.")) {
+      await api("/api/saves/" + encodeURIComponent(e.target.dataset.forget), { method: "DELETE" });
+      show("archives");
+    }
+  };
+}
+
 const views = {
+  async archives() { await renderArchives(); },
   async setup() {
     const t = state.boot.tournament;
     $("#view").innerHTML = `
@@ -556,4 +613,4 @@ function renderBracket(el, d, methods) {
   };
 }
 
-boot().then(() => show("setup"));
+boot().then(() => show("archives"));

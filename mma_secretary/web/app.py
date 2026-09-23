@@ -22,6 +22,7 @@ from mma_secretary.services.documents import (
     scorecards,
     team_protocol,
 )
+from mma_secretary.services.archives import Archives
 from mma_secretary.services.engine import TournamentService
 from mma_secretary.services.import_export import export_participants_xlsx, export_report_xlsx, import_xlsx
 from mma_secretary.storage.db import Database
@@ -34,6 +35,7 @@ DB_PATH = DATA_DIR / "tournament.db"
 db = Database(DB_PATH)
 svc = TournamentService(db)
 svc.seed_defaults()
+archives = Archives(DATA_DIR / "saves", svc)
 
 app = FastAPI(title="Секретарь ММА", version="1.0.0")
 app.mount("/static", StaticFiles(directory=STATIC), name="static")
@@ -262,6 +264,37 @@ def export_json():
 async def import_json(file: UploadFile = File(...)):
     data = json.loads(await file.read())
     svc.import_bundle(data)
+    return {"ok": True}
+
+
+@app.get("/api/saves")
+def list_saves():
+    return archives.list()
+
+
+@app.post("/api/saves")
+def create_save(data: dict):
+    return archives.save(data.get("name") or "")
+
+
+@app.post("/api/saves/{sid}/load")
+def load_save(sid: str):
+    try:
+        archives.load(sid)
+        return {"ok": True}
+    except Exception as e:
+        _err(e)
+
+
+@app.delete("/api/saves/{sid}")
+def delete_save(sid: str):
+    archives.delete(sid)
+    return {"ok": True}
+
+
+@app.post("/api/tournament/new")
+def new_tournament():
+    svc.reset_to_empty()
     return {"ok": True}
 
 

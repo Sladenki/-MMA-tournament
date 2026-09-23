@@ -1076,6 +1076,29 @@ class TournamentService:
             )
         self.conn.commit()
 
+    def reset_to_empty(self) -> None:
+        """Пустой турнир: люди и сетки сбрасываются, справочники весов остаются."""
+        self.conn.execute("DELETE FROM placement")
+        self.conn.execute("DELETE FROM bout")
+        self.conn.execute("DELETE FROM category_entry")
+        self.conn.execute("DELETE FROM category")
+        self.conn.execute("DELETE FROM weight_history")
+        self.conn.execute("DELETE FROM participant")
+        self.conn.execute("DELETE FROM team_rep")
+        self.conn.execute("DELETE FROM draw_log")
+        self.conn.execute("DELETE FROM audit_log")
+        self.update_tournament(
+            {
+                "name": "",
+                "kind": "смешанное боевое единоборство (ММА)",
+                "date": "",
+                "city": "",
+                "chief_referee": "",
+                "chief_secretary": "",
+            }
+        )
+        self.conn.commit()
+
     def seed_defaults(self) -> None:
         if self.list_age_groups():
             return
