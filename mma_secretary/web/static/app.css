@@ -32,35 +32,68 @@ body {
   color: #f4f7fb;
   display: flex;
   flex-direction: column;
-  padding: 20px 14px;
+  padding: 10px 12px 12px;
+  overflow: hidden;
 }
-.brand { padding: 0 8px 18px; border-bottom: 1px solid rgba(255,255,255,.12); margin-bottom: 14px; }
-.brand strong { display: block; font-size: 18px; }
-.brand span { display: block; margin-top: 4px; color: #c5d2e0; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.brand {
+  padding: 2px 4px 8px;
+  border-bottom: 1px solid rgba(255,255,255,.12);
+  margin-bottom: 8px;
+}
+.brand strong { display: block; font-size: 15px; line-height: 1.2; }
+.brand span { display: none; }
 
-nav { display: flex; flex-direction: column; gap: 6px; }
+nav { display: flex; flex-direction: column; gap: 3px; }
 nav button {
-  display: flex; align-items: center; gap: 10px;
+  display: flex; align-items: center; gap: 8px;
   width: 100%; border: 0; background: transparent; color: #e8eef5;
-  text-align: left; padding: 11px 10px; border-radius: 8px;
-  font: inherit; cursor: pointer;
+  text-align: left; padding: 7px 8px; border-radius: 8px;
+  font: inherit; font-size: 14px; cursor: pointer;
 }
 nav button i {
-  width: 26px; height: 26px; border-radius: 50%;
-  display: grid; place-items: center; font-style: normal; font-size: 13px; font-weight: 700;
+  width: 22px; height: 22px; border-radius: 50%;
+  display: grid; place-items: center; font-style: normal; font-size: 12px; font-weight: 700;
   background: rgba(255,255,255,.12);
 }
 nav button:hover { background: var(--navy-2); }
 nav button.active { background: #fff; color: var(--navy); font-weight: 600; }
 nav button.active i { background: var(--red); color: #fff; }
 
-.rail-foot { margin-top: auto; display: flex; flex-direction: column; gap: 8px; padding-top: 16px; }
-.rail-foot button, .file-btn {
-  border: 1px solid rgba(255,255,255,.25); background: transparent; color: #fff;
-  padding: 10px 12px; border-radius: 8px; font: inherit; cursor: pointer; text-align: center;
+.rail-foot {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 8px;
+  min-width: 0;
+  width: 100%;
+  flex-shrink: 0;
 }
-.rail-foot button:hover, .file-btn:hover { background: var(--navy-2); }
+.rail-foot button, .file-btn {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  border: 1px solid rgba(255,255,255,.25); background: transparent; color: #fff;
+  padding: 8px 10px; border-radius: 8px; font: inherit; cursor: pointer; text-align: center;
+  text-decoration: none;
+}
+.rail-foot button:hover, .file-btn:hover { background: var(--navy-2); color: #fff; }
 .file-btn { display: block; }
+a.about-link {
+  display: block;
+  width: 100%;
+  margin-top: 2px;
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  color: #8fa3b8;
+  font-size: 12px;
+  letter-spacing: .04em;
+  text-align: center;
+  text-decoration: none;
+}
+a.about-link:hover { color: #fff; }
 
 .wrap { flex: 1; min-width: 0; overflow: auto; padding: 22px 28px 48px; }
 .top { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 18px; }

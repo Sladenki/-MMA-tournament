@@ -44,6 +44,11 @@ def index():
     return (STATIC / "index.html").read_text(encoding="utf-8")
 
 
+@app.get("/about", response_class=HTMLResponse)
+def about():
+    return (STATIC / "about.html").read_text(encoding="utf-8")
+
+
 def _err(exc: Exception):
     raise HTTPException(400, str(exc)) from exc
 
