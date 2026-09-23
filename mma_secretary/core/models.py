@@ -41,6 +41,8 @@ class Participant:
     weight: float | None
     status: str = "заявлен"
     draw_number: int | None = None
+    gender: str = "муж"
+    division_id: int | None = None
 
 
 @dataclass(frozen=True)
@@ -48,6 +50,7 @@ class CategoryKey:
     age_group_id: int
     division_id: int
     weight_class_id: int
+    gender: str = "муж"
 
 
 @dataclass(frozen=True)

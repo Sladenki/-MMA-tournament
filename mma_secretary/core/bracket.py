@@ -22,7 +22,7 @@ def bracket_size(n: int) -> int:
     if n == 2:
         return 2
     if n == 3:
-        return 3
+        return 4
     if n <= 8:
         return 8
     if n <= 16:
@@ -41,12 +41,6 @@ def first_round_order(n: int) -> list[FirstRoundSlot]:
         return [FirstRoundSlot("bye", 1)]
     if n == 2:
         return [FirstRoundSlot("fight", 1, 2)]
-    if n == 3:
-        return [
-            FirstRoundSlot("fight", 1, 2),
-            FirstRoundSlot("fight", 1, 3),
-            FirstRoundSlot("fight", 2, 3),
-        ]
     size = bracket_size(n)
     byes = size - n
     pairs = (n - byes) // 2
@@ -99,14 +93,6 @@ def build_bracket(n: int, *, bronze_bout: bool = False) -> Bracket:
     if n == 2:
         match = MatchSpec(key="F", round_code="финал", slot=0, blue_ctrl=1, red_ctrl=2)
         return Bracket(2, 2, "final", [FirstRoundSlot("fight", 1, 2)], [match])
-    if n == 3:
-        matches = [
-            MatchSpec(key="RR-1", round_code="круг", slot=0, blue_ctrl=1, red_ctrl=2),
-            MatchSpec(key="RR-2", round_code="круг", slot=1, blue_ctrl=1, red_ctrl=3),
-            MatchSpec(key="RR-3", round_code="круг", slot=2, blue_ctrl=2, red_ctrl=3),
-        ]
-        return Bracket(3, 3, "round_robin", first_round_order(3), matches)
-
     first = first_round_order(n)
     matches: list[MatchSpec] = []
     current: list[MatchSpec] = []
@@ -231,7 +217,5 @@ def fight_count(n: int, bronze_bout: bool = False) -> int:
         return 0
     if n == 2:
         return 1
-    if n == 3:
-        return 3
     extra = 1 if bronze_bout and n >= 4 else 0
     return n - 1 + extra

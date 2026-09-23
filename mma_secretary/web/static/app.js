@@ -5,7 +5,7 @@ const state = { view: "archives", boot: null, sort: "seq", catId: null };
 
 const titles = {
   archives: ["Турниры", "Сохраните текущие данные, начните пустой турнир или откройте другую копию."],
-  setup: ["Реквизиты", "Название турнира, судьи, возрасты, дивизионы и веса"],
+  setup: ["Реквизиты", "Название турнира, судьи, возрасты (например 2018-2019), дивизионы и веса"],
   people: ["Участники", "Добавьте заявку вручную или загрузите таблицу. Отчество программа отрежет сама."],
   weigh: ["Взвешивание", "Впишите фактический вес и нажмите «Записать». Запятая и точка оба подходят."],
   cats: ["Категории", "Разбейте список по возрасту, дивизиону и весу. Кто не попал — будет в жёлтом списке, а не пропадёт."],
@@ -242,7 +242,7 @@ async function show(view) {
   try { await views[view](); enhanceSelects($("#view")); } catch (e) { $("#view").innerHTML = `<div class="warn-box">${esc(e.message)}</div>`; }
 }
 
-function resultForm(b, methodsHtml, onDone) {
+function resultForm(b, onDone) {
   if (!b.blue || !b.red) return;
   openModal("Кто победил" + (b.bout_no ? ` · бой № ${b.bout_no}` : ""), `
     <p>${esc(roundRu(b.round_title || b.round_code))}</p>
@@ -250,18 +250,14 @@ function resultForm(b, methodsHtml, onDone) {
       <button class="btn blue wide" id="pick-blue" type="button">Синий угол<br>${esc(b.blue.name)}</button>
       <button class="btn red wide" id="pick-red" type="button">Красный угол<br>${esc(b.red.name)}</button>
     </div>
-    <label class="field">Как победил
-      <select id="w-m">${methodsHtml}</select>
-    </label>
     ${b.winner_entry_id || b.winner ? `<button class="btn sec" id="w-clr" type="button">Сбросить результат</button>` : ""}
   `);
   const send = async (entryId) => {
-    await api(`/api/bouts/${b.id}/result`, { method:"POST", body:{ winner_entry_id: entryId, method: $("#w-m").value }});
+    await api(`/api/bouts/${b.id}/result`, { method:"POST", body:{ winner_entry_id: entryId }});
     closeModal(); onDone();
   };
   $("#pick-blue").onclick = () => send(b.blue.id);
   $("#pick-red").onclick = () => send(b.red.id);
-  enhanceSelects($("#modal-body"));
   const clr = $("#w-clr");
   if (clr) clr.onclick = async () => { await api(`/api/bouts/${b.id}/clear`, { method:"POST", body:{} }); closeModal(); onDone(); };
 }
@@ -336,13 +332,6 @@ const views = {
           <label class="field">Главный судья<input id="t-ref" value="${esc(t.chief_referee)}"></label>
           <label class="field">Главный секретарь<input id="t-sec" value="${esc(t.chief_secretary)}"></label>
           <label class="field">Сколько рингов<input id="t-rings" type="number" min="1" value="${t.rings||1}"></label>
-          <label class="field">Третье место
-            <select id="t-bronze">
-              <option value="0">два третьих места</option>
-              <option value="1">отдельный бой за бронзу</option>
-            </select>
-          </label>
-          <label class="field"><span><input type="checkbox" id="t-walk" ${t.award_walkover?"checked":""}> очки одиночке (n=1)</span></label>
         </div>
         <button class="btn" id="t-save" type="button">Сохранить реквизиты</button>
       </div>
@@ -352,7 +341,7 @@ const views = {
           <div>
             <h3>Возрастные группы</h3>
             <div id="ages"></div>
-            <div class="add-row" style="margin-top:10px"><input id="age-label" placeholder="2007-2008"><button class="btn sec" id="age-add" type="button">Добавить</button></div>
+            <div class="add-row" style="margin-top:10px"><input id="age-label" placeholder="2018-2019"><button class="btn sec" id="age-add" type="button">Добавить</button></div>
           </div>
           <div>
             <h3>Дивизионы</h3>
@@ -372,14 +361,11 @@ const views = {
         <div id="pts"></div>
         <button class="btn" id="pts-save" type="button">Сохранить очки</button>
       </div>`;
-    $("#t-bronze").value = t.bronze_bout ? "1" : "0";
     $("#t-save").onclick = async () => {
       state.boot.tournament = await api("/api/tournament", { method: "PUT", body: {
         name: $("#t-name").value, kind: $("#t-kind").value, date: $("#t-date").value,
         city: $("#t-city").value, chief_referee: $("#t-ref").value, chief_secretary: $("#t-sec").value,
-        rings: +$("#t-rings").value, bronze_bout: +$("#t-bronze").value,
-        two_bronzes: +$("#t-bronze").value ? 0 : 1,
-        award_walkover: $("#t-walk").checked ? 1 : 0,
+        rings: +$("#t-rings").value, bronze_bout: 0, two_bronzes: 1, award_walkover: 1,
       }});
       $("#brand-sub").textContent = state.boot.tournament.name;
       toast("Сохранено");
@@ -412,7 +398,7 @@ const views = {
       </div>
       <div class="table-wrap">
         <table class="data" id="ptable">
-          <thead><tr><th>№</th><th>Жребий</th><th>ФИО</th><th>Организация</th><th>Разряд</th><th>Год</th><th>Тренер</th><th>Вес</th><th>Статус</th><th></th></tr></thead>
+          <thead><tr><th>№</th><th>Жребий</th><th>ФИО</th><th>Пол</th><th>Организация</th><th>Разряд</th><th>Год</th><th>Тренер</th><th>Вес</th><th>Статус</th><th></th></tr></thead>
           <tbody></tbody>
         </table>
       </div>`;
@@ -422,12 +408,12 @@ const views = {
     const draw = (items) => {
       tbody.innerHTML = items.map(p => `<tr>
         <td>${p.seq??""}</td><td>${p.draw_number??""}</td>
-        <td><b>${esc(p.name)}</b></td><td>${esc(p.organization)}</td>
+        <td><b>${esc(p.name)}</b></td><td>${p.gender==="жен"?"жен":"муж"}</td><td>${esc(p.organization)}</td>
         <td>${esc(p.rank)}</td><td>${p.birth_year??""}</td><td>${esc(p.coach)}</td>
         <td>${p.weight ?? "—"}</td><td><span class="badge ${statusClass(p.status)}">${esc(p.status)}</span></td>
         <td class="actions"><button class="btn sm sec" data-edit="${p.id}" type="button">Изменить</button>
             <button class="btn sm danger" data-del="${p.id}" type="button">Удалить</button></td>
-      </tr>`).join("") || `<tr><td colspan="10">Список пуст. Добавьте человека или загрузите Excel.</td></tr>`;
+      </tr>`).join("") || `<tr><td colspan="11">Список пуст. Добавьте человека или загрузите Excel.</td></tr>`;
     };
     draw(list);
     $("#q").oninput = () => {
@@ -495,9 +481,9 @@ const views = {
       </div>
       <div id="unplaced"></div>
       ${cats.length ? `<div class="table-wrap"><table class="data">
-        <thead><tr><th>Возраст</th><th>Дивизион</th><th>Вес</th><th>Человек</th><th>Вид сетки</th><th></th></tr></thead>
+        <thead><tr><th>Возраст</th><th>Пол</th><th>Дивизион</th><th>Вес</th><th>Человек</th><th>Вид сетки</th><th></th></tr></thead>
         <tbody>${cats.map(c => `<tr>
-          <td>${esc(c.age_label)}</td><td>${esc(c.division_code)}</td>
+          <td>${esc(c.age_label)}</td><td>${esc(c.gender_label || (c.gender==="жен"?"женщины":"мужчины"))}</td><td>${esc(c.division_code)}</td>
           <td>до ${esc(c.weight_label)} кг</td><td><b>${c.n}</b></td>
           <td>${esc(c.bracket_title || kindRu(c.bracket_kind))}</td>
           <td class="actions">
@@ -537,17 +523,16 @@ const views = {
     }
     if (!state.catId) state.catId = cats[0].id;
     const d = await api("/api/categories/" + state.catId);
-    const methods = (state.boot.methods||[]).map(m => `<option>${m}</option>`).join("");
     const title = d.category.bracket_title || kindRu(d.category.bracket_kind);
     $("#view").innerHTML = `
       <div class="toolbar">
         <select id="cat-sel" style="max-width:420px">${cats.map(c =>
-          `<option value="${c.id}" ${c.id===state.catId?"selected":""}>до ${esc(c.weight_label)} кг · ${esc(c.age_label)} · ${esc(c.division_code)} · ${c.n} чел. · ${esc(c.bracket_title || kindRu(c.bracket_kind))}</option>`
+          `<option value="${c.id}" ${c.id===state.catId?"selected":""}>до ${esc(c.weight_label)} кг · ${esc(c.age_label)} · ${esc(c.gender_label || "")} · ${esc(c.division_code)} · ${c.n} чел. · ${esc(c.bracket_title || kindRu(c.bracket_kind))}</option>`
         ).join("")}</select>
         <button class="btn sec" id="br-redraw" type="button">Новый жребий</button>
       </div>
       <div class="card">
-        <h2>${esc(d.category.age_label)} · дивизион ${esc(d.category.division_code)} · до ${esc(d.category.weight_label)} кг · ${esc(title)}</h2>
+        <h2>${esc(d.category.age_label)} · ${esc(d.category.gender_label || "")} · дивизион ${esc(d.category.division_code)} · до ${esc(d.category.weight_label)} кг · ${esc(title)}</h2>
         <div class="chips">${d.entries.map(e =>
           `<span class="chip"><b>${e.control_number}.</b> ${esc(e.name)} <span style="color:#5c6570">${esc(e.organization)}</span></span>`
         ).join("")}</div>
@@ -559,12 +544,11 @@ const views = {
       await api(`/api/categories/${state.catId}/redraw`, { method:"POST", body:{} });
       show("brackets");
     };
-    renderBracket($("#br"), d, methods);
+    renderBracket($("#br"), d);
   },
 
   async bouts() {
     const list = await api("/api/bouts");
-    const methods = (state.boot.methods||[]).map(m => `<option>${m}</option>`).join("");
     $("#view").innerHTML = list.length ? `
       <div class="table-wrap"><table class="data">
         <thead><tr><th>№</th><th>Категория</th><th>Тур</th><th>Синий угол</th><th>Красный угол</th><th>Победитель</th><th>Ринг</th><th></th></tr></thead>
@@ -582,7 +566,7 @@ const views = {
     $("#view").onclick = (e) => {
       if (!e.target.dataset.res) return;
       const b = list.find(x => x.id == e.target.dataset.res);
-      resultForm(b, methods, () => show("bouts"));
+      resultForm(b, () => show("bouts"));
     };
     $$("input[data-ring]").forEach(inp => inp.onchange = () => {
       api(`/api/bouts/${inp.dataset.ring}/schedule`, { method:"POST", body:{ ring: inp.value? +inp.value: null }});
@@ -701,7 +685,21 @@ function personForm(p) {
     <label class="field">Фамилия и имя<input id="f-name" value="${esc(v("name"))}"></label>
     <label class="field">Город, организация<input id="f-org" value="${esc(v("organization"))}"></label>
     <div class="grid two">
-      <label class="field">Разряд или дивизион<input id="f-rank" value="${esc(v("rank"))}" placeholder="КМС или А"></label>
+      <label class="field">Пол
+        <select id="f-gender">
+          <option value="муж" ${v("gender","муж")==="жен"?"":"selected"}>мужской</option>
+          <option value="жен" ${v("gender")==="жен"?"selected":""}>женский</option>
+        </select>
+      </label>
+      <label class="field">Дивизион
+        <select id="f-div">
+          <option value="">не указан</option>
+          ${(state.boot.divisions||[]).map(d => `<option value="${d.id}" ${String(v("division_id"))===String(d.id)?"selected":""}>${esc(d.code)}</option>`).join("")}
+        </select>
+      </label>
+    </div>
+    <div class="grid two">
+      <label class="field">Разряд<input id="f-rank" value="${esc(v("rank"))}" placeholder="КМС, 1, б/р"></label>
       <label class="field">Год рождения<input id="f-year" value="${esc(v("birth_year"))}"></label>
     </div>
     <label class="field">Тренер<input id="f-coach" value="${esc(v("coach"))}"></label>
@@ -711,11 +709,12 @@ function personForm(p) {
     </div>
     <button class="btn" id="f-ok" type="button">Сохранить</button>
   `);
+  enhanceSelects($("#modal-body"));
   $("#f-ok").onclick = async () => {
     const body = {
       name: $("#f-name").value, organization: $("#f-org").value, rank: $("#f-rank").value,
       birth_year: $("#f-year").value, coach: $("#f-coach").value, weight: $("#f-w").value,
-      draw_number: $("#f-draw").value,
+      draw_number: $("#f-draw").value, gender: $("#f-gender").value, division_id: $("#f-div").value,
     };
     const r = p ? await api("/api/participants/"+p.id, { method:"PUT", body }) : await api("/api/participants", { method:"POST", body });
     if (r.duplicate_warning) toast("Похожий участник уже есть", "err");
@@ -723,7 +722,7 @@ function personForm(p) {
   };
 }
 
-function renderBracket(el, d, methods) {
+function renderBracket(el, d) {
   const byRound = {};
   d.bouts.forEach(b => { (byRound[b.round_code] ||= []).push(b); });
   const order = ["1/32","1/16","1/8","1/4","круг","1/2","финал","за бронзу","без боя","авто"];
@@ -758,7 +757,7 @@ function renderBracket(el, d, methods) {
       ...b,
       blue: who(b.blue_entry_id),
       red: who(b.red_entry_id),
-    }, methods, () => show("brackets"));
+    }, () => show("brackets"));
   };
 }
 

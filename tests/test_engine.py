@@ -43,12 +43,14 @@ def test_classify_gold_roundtrip(tmp_path):
     assert len(semis) == 2
     assert all(b["blue"] and b["red"] for b in semis)
     rr = [b for b in detail["bouts"] if not b["is_bye"]]
-    assert len(rr) == 3
-    first = rr[0]
-    svc.set_result(first["id"], first["blue_entry_id"], "решение")
+    assert len(rr) == 2
+    first = next(b for b in rr if b["blue"] and b["red"])
+    svc.set_result(first["id"], first["blue_entry_id"])
     again = svc.category_detail(by["65,8"]["id"])
-    assert again["bouts"][0]["winner_entry_id"] == first["blue_entry_id"]
+    scored = next(b for b in again["bouts"] if b["id"] == first["id"])
+    assert scored["winner_entry_id"] == first["blue_entry_id"]
     svc.undo()
     undone = svc.category_detail(by["65,8"]["id"])
-    assert undone["bouts"][0]["winner_entry_id"] is None
+    cleared = next(b for b in undone["bouts"] if b["id"] == first["id"])
+    assert cleared["winner_entry_id"] is None
     db.close()

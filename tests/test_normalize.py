@@ -1,5 +1,8 @@
+import pytest
+
 from mma_secretary.core.normalize import (
     format_kg,
+    normalize_gender,
     normalize_name,
     normalize_rank,
     parse_age_bounds,
@@ -22,8 +25,16 @@ def test_weight_comma_and_dot():
 
 def test_age_bounds():
     assert parse_age_bounds("2007-2008") == (2007, 2008)
-    assert parse_age_bounds("младше 2010") == (2010, 3000)
-    assert parse_age_bounds("2005+") == (2005, 3000)
+    assert parse_age_bounds("2018-2019") == (2018, 2019)
+    with pytest.raises(ValueError):
+        parse_age_bounds("младше 2010")
+    with pytest.raises(ValueError):
+        parse_age_bounds("2005+")
+
+
+def test_gender():
+    assert normalize_gender("женский") == "жен"
+    assert normalize_gender("") == "муж"
 
 
 def test_format_kg():

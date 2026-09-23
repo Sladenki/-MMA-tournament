@@ -20,6 +20,7 @@ from mma_secretary.core.labels import bracket_kind_ru, round_ru
 from mma_secretary.core.normalize import (
     format_kg,
     looks_like_duplicate,
+    normalize_gender,
     normalize_name,
     normalize_org,
     normalize_rank,
@@ -268,6 +269,9 @@ class TournamentService:
         status = data.get("status") or ("взвешен" if weight is not None else "заявлен")
         draw = data.get("draw_number")
         draw = int(draw) if draw not in (None, "") else None
+        gender = normalize_gender(data.get("gender"))
+        division_id = data.get("division_id")
+        division_id = int(division_id) if division_id not in (None, "") else None
         seq = data.get("seq")
         if seq in (None, ""):
             mx = self.conn.execute(
@@ -278,9 +282,9 @@ class TournamentService:
         warning = self._dup_warning(name, year)
         cur = self.conn.execute(
             """INSERT INTO participant
-               (tournament_id, seq, name, organization, rank, birth_year, coach, weight, status, draw_number)
-               VALUES (?,?,?,?,?,?,?,?,?,?)""",
-            (self.tid(), seq, name, org, rank, year, coach, weight, status, draw),
+               (tournament_id, seq, name, organization, rank, birth_year, coach, weight, status, draw_number, gender, division_id)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
+            (self.tid(), seq, name, org, rank, year, coach, weight, status, draw, gender, division_id),
         )
         pid = cur.lastrowid
         if weight is not None:
@@ -309,11 +313,14 @@ class TournamentService:
         status = data.get("status", prev["status"])
         draw = data.get("draw_number", prev["draw_number"])
         draw = int(draw) if draw not in (None, "") else None
+        gender = normalize_gender(data.get("gender", prev["gender"] if "gender" in prev.keys() else "муж"))
+        division_id = data.get("division_id", prev["division_id"] if "division_id" in prev.keys() else None)
+        division_id = int(division_id) if division_id not in (None, "") else None
         warning = self._dup_warning(name, year, exclude_id=pid)
         self.conn.execute(
             """UPDATE participant SET name=?, organization=?, rank=?, birth_year=?, coach=?,
-               weight=?, status=?, draw_number=? WHERE id=?""",
-            (name, org, rank, year, coach, weight, status, draw, pid),
+               weight=?, status=?, draw_number=?, gender=?, division_id=? WHERE id=?""",
+            (name, org, rank, year, coach, weight, status, draw, gender, division_id, pid),
         )
         if "weight" in data and weight != prev["weight"] and weight is not None:
             self.conn.execute(
@@ -342,6 +349,9 @@ class TournamentService:
             raise ValueError("Нужен вес")
         prev = dict(self.conn.execute("SELECT * FROM participant WHERE id=?", (pid,)).fetchone())
         st = status or ("допущен" if prev["status"] in {"заявлен", "взвешен", "допущен"} else prev["status"])
+        limits = [w.limit_kg for w in self.list_weights()]
+        if limits and weight > max(limits) + 1e-9:
+            st = "снят"
         self.conn.execute("UPDATE participant SET weight=?, status=? WHERE id=?", (weight, st, pid))
         self.conn.execute(
             "INSERT INTO weight_history (participant_id, weight, recorded_at) VALUES (?,?,?)",
@@ -372,6 +382,8 @@ class TournamentService:
                     weight=r["weight"],
                     status=r["status"],
                     draw_number=r["draw_number"],
+                    gender=r.get("gender") or "муж",
+                    division_id=r.get("division_id"),
                 )
             )
         return out
@@ -391,13 +403,14 @@ class TournamentService:
         self.conn.execute("DELETE FROM category_entry WHERE category_id IN (SELECT id FROM category WHERE tournament_id=?)", (tid,))
         self.conn.execute("DELETE FROM category WHERE tournament_id=?", (tid,))
         created = []
-        t = self.get_tournament()
-        bronze = bool(t["bronze_bout"])
+        for u in unplaced:
+            if "выше самой тяжёлой" in u.reason:
+                self.conn.execute("UPDATE participant SET status='снят' WHERE id=?", (u.participant_id,))
         for key, plist in buckets.items():
             cur = self.conn.execute(
-                """INSERT INTO category (tournament_id, age_group_id, division_id, weight_class_id, drawn_at)
-                   VALUES (?,?,?,?,?)""",
-                (tid, key.age_group_id, key.division_id, key.weight_class_id, _now()),
+                """INSERT INTO category (tournament_id, age_group_id, division_id, weight_class_id, gender, drawn_at)
+                   VALUES (?,?,?,?,?,?)""",
+                (tid, key.age_group_id, key.division_id, key.weight_class_id, key.gender, _now()),
             )
             cid = cur.lastrowid
             assigned = assign_control_numbers(plist)
@@ -407,7 +420,7 @@ class TournamentService:
                     (cid, pid, ctrl),
                 )
             n = len(assigned)
-            bracket = build_bracket(n, bronze_bout=bronze)
+            bracket = build_bracket(n, bronze_bout=False)
             self._write_bracket(cid, bracket)
             created.append(self._category_dict(cid))
         self._renumber_bouts()
@@ -437,13 +450,14 @@ class TournamentService:
                JOIN division d ON d.id=c.division_id
                JOIN weight_class w ON w.id=c.weight_class_id
                WHERE c.tournament_id=?
-               ORDER BY ag.sort_order, d.sort_order, w.limit_kg""",
+               ORDER BY ag.sort_order, c.gender, d.sort_order, w.limit_kg""",
             (self.tid(),),
         ).fetchall()
         return [self._decorate_category(dict(r)) for r in rows]
 
     def _decorate_category(self, row: dict) -> dict:
         row["bracket_title"] = bracket_kind_ru(row.get("bracket_kind"))
+        row["gender_label"] = "женщины" if row.get("gender") == "жен" else "мужчины"
         return row
 
     def _category_dict(self, cid: int) -> dict:
@@ -493,14 +507,29 @@ class TournamentService:
 
     def redraw(self, cid: int, seed: int | None = None) -> dict:
         snapshot = self.category_detail(cid)
-        ids = [
-            r["participant_id"]
-            for r in self.conn.execute(
-                "SELECT participant_id FROM category_entry WHERE category_id=? ORDER BY control_number",
-                (cid,),
-            ).fetchall()
-        ]
-        assigned, used_seed = redraw_control_numbers(ids, seed=seed)
+        people = []
+        for r in self.conn.execute(
+            """SELECT p.* FROM category_entry e
+               JOIN participant p ON p.id=e.participant_id
+               WHERE e.category_id=? ORDER BY e.control_number""",
+            (cid,),
+        ).fetchall():
+            people.append(
+                Participant(
+                    id=r["id"],
+                    name=r["name"],
+                    organization=r["organization"],
+                    rank=r["rank"] or "",
+                    birth_year=r["birth_year"],
+                    coach=r["coach"] or "",
+                    weight=r["weight"],
+                    status=r["status"],
+                    draw_number=r["draw_number"],
+                    gender=r["gender"] if "gender" in r.keys() else "муж",
+                    division_id=r["division_id"] if "division_id" in r.keys() else None,
+                )
+            )
+        assigned, used_seed = redraw_control_numbers(people, seed=seed)
         assigned.sort(key=lambda x: x[1])
         self.conn.execute("DELETE FROM placement WHERE category_id=?", (cid,))
         self.conn.execute("DELETE FROM bout WHERE category_id=?", (cid,))
@@ -510,8 +539,7 @@ class TournamentService:
                 "INSERT INTO category_entry (category_id, participant_id, control_number) VALUES (?,?,?)",
                 (cid, pid, ctrl),
             )
-        t = self.get_tournament()
-        bracket = build_bracket(len(assigned), bronze_bout=bool(t["bronze_bout"]))
+        bracket = build_bracket(len(assigned), bronze_bout=False)
         self._write_bracket(cid, bracket)
         self.conn.execute("UPDATE category SET drawn_at=? WHERE id=?", (_now(), cid))
         self.conn.execute(
@@ -537,8 +565,7 @@ class TournamentService:
                 "INSERT INTO category_entry (category_id, participant_id, control_number) VALUES (?,?,?)",
                 (cid, pid, i),
             )
-        t = self.get_tournament()
-        bracket = build_bracket(len(participant_ids), bronze_bout=bool(t["bronze_bout"]))
+        bracket = build_bracket(len(participant_ids), bronze_bout=False)
         self._write_bracket(cid, bracket)
         self.conn.execute(
             "INSERT INTO draw_log (category_id, method, seed, created_at, payload) VALUES (?,?,?,?,?)",
@@ -581,8 +608,7 @@ class TournamentService:
 
     def _bracket_from_db(self, cid: int) -> tuple[Bracket, dict[int, int], dict[int, int]]:
         n = self.conn.execute("SELECT COUNT(*) FROM category_entry WHERE category_id=?", (cid,)).fetchone()[0]
-        t = self.get_tournament()
-        bracket = build_bracket(n, bronze_bout=bool(t["bronze_bout"]))
+        bracket = build_bracket(n, bronze_bout=False)
         entry_to_ctrl = {
             r["id"]: r["control_number"]
             for r in self.conn.execute("SELECT id, control_number FROM category_entry WHERE category_id=?", (cid,))
@@ -617,7 +643,7 @@ class TournamentService:
         bracket, entry_to_ctrl, ctrl_to_entry = self._bracket_from_db(cid)
         apply_winner(bracket, bout["match_key"], entry_to_ctrl[winner_entry_id])
         self._sync_winners(cid, bracket, ctrl_to_entry)
-        self.conn.execute("UPDATE bout SET method=? WHERE id=?", (method, bout_id))
+        self.conn.execute("UPDATE bout SET method=NULL WHERE id=?", (bout_id,))
         self._recalc_category_places(cid)
         self._audit("set_result", {"bout_id": bout_id, "before": snapshot})
         self.conn.commit()
@@ -709,21 +735,16 @@ class TournamentService:
             self.conn.execute("UPDATE bout SET bout_no=?, scheduled_order=? WHERE id=?", (i, i, r["id"]))
 
     def _recalc_category_places(self, cid: int) -> None:
-        t = self.get_tournament()
         bracket, entry_to_ctrl, ctrl_to_entry = self._bracket_from_db(cid)
         # reload winners already in bracket
-        two = bool(t["two_bronzes"])
-        places = placements_from_bracket(bracket, two_bronzes=two)
+        places = placements_from_bracket(bracket, two_bronzes=True)
         rules = self.list_point_rules()
-        award = bool(t["award_walkover"])
         self.conn.execute("DELETE FROM placement WHERE category_id=?", (cid,))
         ctrl_to_pid = {
             r["control_number"]: r["participant_id"]
             for r in self.conn.execute("SELECT control_number, participant_id FROM category_entry WHERE category_id=?", (cid,))
         }
         for p, pts in apply_points(places, rules):
-            if bracket.kind == "walkover" and not award:
-                pts = 0
             pid = ctrl_to_pid.get(p.control_number)
             if pid:
                 self.conn.execute(
@@ -881,8 +902,8 @@ class TournamentService:
             b = payload["before"]
             self.conn.execute(
                 """UPDATE participant SET name=?, organization=?, rank=?, birth_year=?, coach=?,
-                   weight=?, status=?, draw_number=? WHERE id=?""",
-                (b["name"], b["organization"], b["rank"], b["birth_year"], b["coach"], b["weight"], b["status"], b["draw_number"], b["id"]),
+                   weight=?, status=?, draw_number=?, gender=?, division_id=? WHERE id=?""",
+                (b["name"], b["organization"], b["rank"], b["birth_year"], b["coach"], b["weight"], b["status"], b["draw_number"], b.get("gender") or "муж", b.get("division_id"), b["id"]),
             )
         elif action == "weigh_in" and "before" in payload:
             b = payload["before"]
@@ -896,9 +917,9 @@ class TournamentService:
             b = payload["before"]
             self.conn.execute(
                 """INSERT INTO participant
-                   (id, tournament_id, seq, name, organization, rank, birth_year, coach, weight, status, draw_number)
-                   VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
-                (b["id"], b["tournament_id"], b["seq"], b["name"], b["organization"], b["rank"], b["birth_year"], b["coach"], b["weight"], b["status"], b["draw_number"]),
+                   (id, tournament_id, seq, name, organization, rank, birth_year, coach, weight, status, draw_number, gender, division_id)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (b["id"], b["tournament_id"], b["seq"], b["name"], b["organization"], b["rank"], b["birth_year"], b["coach"], b["weight"], b["status"], b["draw_number"], b.get("gender") or "муж", b.get("division_id")),
             )
         else:
             raise ValueError(f"Отмена «{action}» не поддерживается")
@@ -1037,18 +1058,20 @@ class TournamentService:
                 (tid, r["place_from"], r["place_to"], r["points"]),
             )
         for r in data.get("participants", []):
+            raw_div = r.get("division_id")
+            mapped_div = id_map_div.get(raw_div) if raw_div not in (None, "") else None
             cur = self.conn.execute(
-                """INSERT INTO participant (tournament_id, seq, name, organization, rank, birth_year, coach, weight, status, draw_number)
-                   VALUES (?,?,?,?,?,?,?,?,?,?)""",
-                (tid, r.get("seq"), r["name"], r.get("organization") or "", r.get("rank") or "", r.get("birth_year"), r.get("coach") or "", r.get("weight"), r.get("status") or "заявлен", r.get("draw_number")),
+                """INSERT INTO participant (tournament_id, seq, name, organization, rank, birth_year, coach, weight, status, draw_number, gender, division_id)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (tid, r.get("seq"), r["name"], r.get("organization") or "", r.get("rank") or "", r.get("birth_year"), r.get("coach") or "", r.get("weight"), r.get("status") or "заявлен", r.get("draw_number"), r.get("gender") or "муж", mapped_div),
             )
             id_map_p[r["id"]] = cur.lastrowid
         br = data.get("brackets") or {}
         for r in br.get("categories", []):
             cur = self.conn.execute(
-                """INSERT INTO category (tournament_id, age_group_id, division_id, weight_class_id, bracket_kind, drawn_at)
-                   VALUES (?,?,?,?,?,?)""",
-                (tid, id_map_ag[r["age_group_id"]], id_map_div[r["division_id"]], id_map_w[r["weight_class_id"]], r.get("bracket_kind"), r.get("drawn_at")),
+                """INSERT INTO category (tournament_id, age_group_id, division_id, weight_class_id, gender, bracket_kind, drawn_at)
+                   VALUES (?,?,?,?,?,?,?)""",
+                (tid, id_map_ag[r["age_group_id"]], id_map_div[r["division_id"]], id_map_w[r["weight_class_id"]], r.get("gender") or "муж", r.get("bracket_kind"), r.get("drawn_at")),
             )
             id_map_c[r["id"]] = cur.lastrowid
         for r in br.get("entries", []):

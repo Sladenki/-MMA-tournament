@@ -66,7 +66,9 @@ CREATE TABLE IF NOT EXISTS participant (
   coach TEXT NOT NULL DEFAULT '',
   weight REAL,
   status TEXT NOT NULL DEFAULT 'заявлен',
-  draw_number INTEGER
+  draw_number INTEGER,
+  gender TEXT NOT NULL DEFAULT 'муж',
+  division_id INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS weight_history (
@@ -82,9 +84,10 @@ CREATE TABLE IF NOT EXISTS category (
   age_group_id INTEGER NOT NULL,
   division_id INTEGER NOT NULL,
   weight_class_id INTEGER NOT NULL,
+  gender TEXT NOT NULL DEFAULT 'муж',
   bracket_kind TEXT,
   drawn_at TEXT,
-  UNIQUE (tournament_id, age_group_id, division_id, weight_class_id)
+  UNIQUE (tournament_id, age_group_id, division_id, weight_class_id, gender)
 );
 
 CREATE TABLE IF NOT EXISTS category_entry (
@@ -163,7 +166,49 @@ class Database:
         self.conn.execute("PRAGMA foreign_keys = ON")
         self.conn.execute("PRAGMA journal_mode = WAL")
         self.conn.executescript(SCHEMA)
+        self.migrate()
         self.conn.commit()
+
+    def _columns(self, table: str) -> set[str]:
+        return {r[1] for r in self.conn.execute(f"PRAGMA table_info({table})")}
+
+    def _add_column(self, table: str, name: str, decl: str) -> None:
+        if name not in self._columns(table):
+            self.conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {decl}")
+
+    def migrate(self) -> None:
+        self._add_column("participant", "gender", "TEXT NOT NULL DEFAULT 'муж'")
+        self._add_column("participant", "division_id", "INTEGER")
+        self._add_column("category", "gender", "TEXT NOT NULL DEFAULT 'муж'")
+        sql = self.conn.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='category'"
+        ).fetchone()
+        text = (sql[0] if sql else "") or ""
+        if "weight_class_id, gender" not in text.replace(" ", "") and "weight_class_id,gender" not in text.replace(" ", ""):
+            self.conn.executescript(
+                """
+                PRAGMA foreign_keys=OFF;
+                CREATE TABLE category_new (
+                  id INTEGER PRIMARY KEY,
+                  tournament_id INTEGER NOT NULL REFERENCES tournament(id),
+                  age_group_id INTEGER NOT NULL,
+                  division_id INTEGER NOT NULL,
+                  weight_class_id INTEGER NOT NULL,
+                  gender TEXT NOT NULL DEFAULT 'муж',
+                  bracket_kind TEXT,
+                  drawn_at TEXT,
+                  UNIQUE (tournament_id, age_group_id, division_id, weight_class_id, gender)
+                );
+                INSERT INTO category_new
+                  (id, tournament_id, age_group_id, division_id, weight_class_id, gender, bracket_kind, drawn_at)
+                SELECT id, tournament_id, age_group_id, division_id, weight_class_id,
+                       COALESCE(gender, 'муж'), bracket_kind, drawn_at
+                FROM category;
+                DROP TABLE category;
+                ALTER TABLE category_new RENAME TO category;
+                PRAGMA foreign_keys=ON;
+                """
+            )
 
     def close(self) -> None:
         self.conn.close()

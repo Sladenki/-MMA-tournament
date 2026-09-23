@@ -8,11 +8,7 @@ from mma_secretary.core.models import (
     Unplaced,
     WeightClass,
 )
-from mma_secretary.core.normalize import normalize_rank
-
-
-ELITE_RANKS = frozenset({"", "КМС", "МС", "МСМК", "ЗМС", "БЕЗ РАЗРЯДА", "Б/Р", "БР"})
-SECOND_RANKS = frozenset({"1", "2", "1 РАЗРЯД", "2 РАЗРЯД", "I", "II"})
+from mma_secretary.core.normalize import normalize_gender, normalize_rank
 
 
 def age_group_for(birth_year: int | None, groups: list[AgeGroup]) -> AgeGroup | None:
@@ -28,25 +24,20 @@ def age_group_for(birth_year: int | None, groups: list[AgeGroup]) -> AgeGroup | 
     return None
 
 
-def division_for(rank: str | None, divisions: list[Division]) -> Division | None:
+def division_for(participant: Participant, divisions: list[Division]) -> Division | None:
+    """Разряд остаётся на человеке. Дивизион берём отдельно, иначе первый в справочнике."""
     if not divisions:
         return None
     ordered = sorted(divisions, key=lambda d: (d.sort_order, d.id))
+    if participant.division_id:
+        for d in ordered:
+            if d.id == participant.division_id:
+                return d
     codes = {d.code.strip().upper(): d for d in ordered}
-    r = normalize_rank(rank)
+    r = normalize_rank(participant.rank)
     if r in codes:
         return codes[r]
-    for d in ordered:
-        mapped = {normalize_rank(v) for v in d.rank_values if v}
-        if r and r in mapped:
-            return d
-    if r in ELITE_RANKS:
-        return ordered[0]
-    if r in SECOND_RANKS:
-        return ordered[1] if len(ordered) > 1 else None
-    if r in {"3", "3 РАЗРЯД", "III"}:
-        return ordered[1] if len(ordered) > 1 else None
-    return None
+    return ordered[0]
 
 
 def weight_class_for(weight: float | None, classes: list[WeightClass]) -> WeightClass | None:
@@ -76,16 +67,17 @@ def classify_participant(
     age = age_group_for(participant.birth_year, groups)
     if age is None:
         return None, Unplaced(participant.id, "год рождения не попал ни в одну возрастную группу")
-    div = division_for(participant.rank, divisions)
+    div = division_for(participant, divisions)
     if div is None:
-        return None, Unplaced(participant.id, f"разряд «{participant.rank or 'пусто'}» не распознан")
+        return None, Unplaced(participant.id, "в справочнике нет дивизиона")
     scoped = [w for w in weights if w.age_group_id in (None, age.id)]
     wc = weight_class_for(participant.weight, scoped)
     if wc is None:
         if participant.weight is None:
             return None, Unplaced(participant.id, "нет фактического веса")
-        return None, Unplaced(participant.id, f"вес {participant.weight} кг выше верхней границы")
-    return CategoryKey(age.id, div.id, wc.id), None
+        return None, Unplaced(participant.id, f"вес {participant.weight} кг выше самой тяжёлой категории — снят")
+    gender = normalize_gender(participant.gender)
+    return CategoryKey(age.id, div.id, wc.id, gender), None
 
 
 def classify_all(

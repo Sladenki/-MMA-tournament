@@ -16,7 +16,7 @@ def ctrls(order):
 
 def test_size_table():
     assert [bracket_size(n) for n in (0, 1, 2, 3, 4, 8, 9, 16, 17, 32, 33, 64)] == [
-        0, 1, 2, 3, 8, 8, 16, 16, 32, 32, 64, 64,
+        0, 1, 2, 4, 8, 8, 16, 16, 32, 32, 64, 64,
     ]
 
 
@@ -35,12 +35,26 @@ def test_first_round_n6():
 
 def test_fight_count_invariants():
     for n in range(0, 65):
-        extra = 1 if n >= 4 else 0
-        b = build_bracket(n, bronze_bout=n >= 4)
+        b = build_bracket(n, bronze_bout=False)
         real = [m for m in b.matches if not m.is_bye]
-        assert len(real) == fight_count(n, bronze_bout=n >= 4)
-        if n >= 2 and n != 3:
-            assert len(real) == n - 1 + extra
+        assert len(real) == fight_count(n, bronze_bout=False)
+        if n >= 2:
+            assert len(real) == n - 1
+
+
+def test_n3_olympic_not_round_robin():
+    b = build_bracket(3)
+    assert b.kind == "single_elim"
+    assert b.size == 4
+    real = [m for m in b.matches if not m.is_bye]
+    assert len(real) == 2
+    fight = next(m for m in b.matches if m.round_code == "1/2" and not m.is_bye)
+    apply_winner(b, fight.key, fight.blue_ctrl)
+    final = next(m for m in b.matches if m.round_code == "финал")
+    assert {final.blue_ctrl, final.red_ctrl} == {fight.blue_ctrl, 3}
+    apply_winner(b, final.key, final.blue_ctrl)
+    places = {p.control_number: p.place for p in placements_from_bracket(b)}
+    assert sorted(places.values()) == [1, 2, 3]
 
 
 def test_no_bye_vs_bye_in_first_fight_slots():

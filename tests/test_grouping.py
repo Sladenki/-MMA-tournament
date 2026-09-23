@@ -19,22 +19,48 @@ def test_empty_rank_goes_to_first_division():
     assert key.division_id == 1
 
 
-def test_rank_1_goes_to_second_division():
+def test_rank_stays_on_person():
     key, miss = classify_participant(P(rank="1"), GROUPS, DIVS, WTS)
+    assert miss is None
+    assert key.division_id == 1
+
+
+def test_unknown_rank_is_still_placed():
+    key, miss = classify_participant(P(rank="Ю1"), GROUPS, DIVS, WTS)
+    assert miss is None
+    assert key.division_id == 1
+
+
+def test_explicit_division():
+    key, miss = classify_participant(P(rank="КМС", division_id=2), GROUPS, DIVS, WTS)
     assert miss is None
     assert key.division_id == 2
 
 
-def test_unknown_rank_is_unplaced():
-    key, miss = classify_participant(P(rank="Ю1"), GROUPS, DIVS, WTS)
-    assert key is None
-    assert "не распознан" in miss.reason
+def test_rank_letter_still_means_division():
+    key, miss = classify_participant(P(rank="Б"), GROUPS, DIVS, WTS)
+    assert miss is None
+    assert key.division_id == 2
+
+
+def test_women_separate_from_men():
+    man, _ = classify_participant(P(id=1, gender="муж"), GROUPS, DIVS, WTS)
+    woman, _ = classify_participant(P(id=2, gender="жен"), GROUPS, DIVS, WTS)
+    assert man.gender == "муж"
+    assert woman.gender == "жен"
+    assert man != woman
 
 
 def test_overweight_is_unplaced():
     key, miss = classify_participant(P(weight=130), GROUPS, DIVS, WTS)
     assert key is None
-    assert "выше верхней" in miss.reason
+    assert "снят" in miss.reason
+
+
+def test_no_weight_allowance():
+    key, miss = classify_participant(P(weight=65.81), GROUPS, DIVS, WTS)
+    assert miss is None
+    assert key.weight_class_id == 3
 
 
 def test_wrong_year_unplaced():

@@ -8,7 +8,6 @@ from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 
-from mma_secretary.core.models import WIN_METHODS
 from mma_secretary.services.documents import (
     brackets_html,
     certificates,
@@ -63,7 +62,6 @@ def bootstrap():
         "divisions": [{"id": d.id, "code": d.code, "sort_order": d.sort_order, "rank_values": list(d.rank_values)} for d in svc.list_divisions()],
         "weights": [w.__dict__ for w in svc.list_weights()],
         "point_rules": [p.__dict__ for p in svc.list_point_rules()],
-        "methods": list(WIN_METHODS),
     }
 
 

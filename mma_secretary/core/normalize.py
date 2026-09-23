@@ -41,24 +41,25 @@ def parse_weight(raw: str | int | float | None) -> float | None:
     return float(text)
 
 
+def normalize_gender(raw: str | None) -> str:
+    text = _SPACE.sub(" ", str(raw or "").strip()).casefold()
+    if text in {"ж", "жен", "жен.", "женская", "женский", "девушка", "женщина", "f", "w", "female"}:
+        return "жен"
+    return "муж"
+
+
 def parse_age_bounds(label: str) -> tuple[int, int]:
-    """Разобрать подпись группы. «N+» и «младше N» — год рождения >= N (как в старом файле)."""
+    """Только диапазон годов, например 2018-2019, или один год."""
     text = (label or "").strip()
     m = re.search(r"(\d{4})\s*[-–—]\s*(\d{4})", text)
     if m:
         a, b = int(m.group(1)), int(m.group(2))
         return (min(a, b), max(a, b))
-    m = re.search(r"младше\s*(\d{4})", text, re.IGNORECASE)
-    if m:
-        return (int(m.group(1)), 3000)
-    m = re.search(r"(\d{4})\s*\+", text)
-    if m:
-        return (int(m.group(1)), 3000)
-    m = re.search(r"(\d{4})", text)
+    m = re.fullmatch(r"\s*(\d{4})\s*", text)
     if m:
         y = int(m.group(1))
         return (y, y)
-    raise ValueError(f"Не удалось разобрать возрастную группу: {label!r}")
+    raise ValueError("Укажите возраст как годы рождения, например 2018-2019")
 
 
 def format_kg(value: float) -> str:

@@ -226,7 +226,6 @@ def scorecards(svc: TournamentService) -> str:
             </tr>
             <tr><td>Очки: ________</td><td>Очки: ________</td></tr>
           </table>
-          <p>Характер победы: {escape(b.get("method") or "________________")}</p>
           <p>Победитель: {escape((b["winner"] or {}).get("name") or "________________")}</p>
           <p>Рефери ________________　　Арбитр ________________</p>
         </section>
@@ -245,8 +244,8 @@ def brackets_html(svc: TournamentService) -> str:
         detail = svc.category_detail(cat["id"])
         svg = bracket_svg(detail)
         parts.append(
-            f"<section class='page-break'><h2>{escape(cat['age_label'])} · {escape(cat['division_code'])} · "
-            f"до {escape(cat['weight_label'])} кг ({cat['n']})</h2>{svg}</section>"
+            f"<section class='page-break'><h2>{escape(cat['age_label'])} · {escape(cat.get('gender_label') or '')} · "
+            f"{escape(cat['division_code'])} · до {escape(cat['weight_label'])} кг ({cat['n']})</h2>{svg}</section>"
         )
     if len(parts) > 1:
         parts[1] = parts[1].replace(" page-break", "", 1)
@@ -290,7 +289,7 @@ def bracket_svg(detail: dict) -> str:
     if n <= 1:
         name = detail["entries"][0]["name"] if detail["entries"] else "—"
         return f"<svg xmlns='http://www.w3.org/2000/svg' width='480' height='80'><text x='20' y='40' font-size='16'>{escape(name)} — 1 место</text></svg>"
-    if detail["category"].get("bracket_kind") == "round_robin" or n == 3:
+    if detail["category"].get("bracket_kind") == "round_robin":
         return _rr_svg(detail, entries)
     return _elim_svg(detail, entries, fights)
 
