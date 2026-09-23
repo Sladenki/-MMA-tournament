@@ -407,7 +407,7 @@ const views = {
     const tbody = $("#ptable tbody");
     const draw = (items) => {
       tbody.innerHTML = items.map(p => `<tr>
-        <td>${p.seq??""}</td><td>${p.draw_number??""}</td>
+        <td>${p.seq??""}</td><td><input data-draw="${p.id}" value="${p.draw_number??""}" inputmode="numeric" style="width:72px;text-align:center"></td>
         <td><b>${esc(p.name)}</b></td><td>${p.gender==="жен"?"жен":"муж"}</td><td>${esc(p.organization)}</td>
         <td>${esc(p.rank)}</td><td>${p.birth_year??""}</td><td>${esc(p.coach)}</td>
         <td>${p.weight ?? "—"}</td><td><span class="badge ${statusClass(p.status)}">${esc(p.status)}</span></td>
@@ -419,6 +419,13 @@ const views = {
     $("#q").oninput = () => {
       const q = $("#q").value.toLowerCase();
       draw(list.filter(p => `${p.name} ${p.organization} ${p.coach}`.toLowerCase().includes(q)));
+    };
+    tbody.onchange = async (e) => {
+      if (!e.target.dataset.draw) return;
+      try {
+        await api("/api/participants/"+e.target.dataset.draw, { method:"PUT", body:{ draw_number: e.target.value } });
+        toast("Жребий записан");
+      } catch (err) { toast(err.message, "err"); }
     };
     tbody.onclick = async (e) => {
       const del = e.target.dataset.del, ed = e.target.dataset.edit;
@@ -530,6 +537,7 @@ const views = {
           `<option value="${c.id}" ${c.id===state.catId?"selected":""}>до ${esc(c.weight_label)} кг · ${esc(c.age_label)} · ${esc(c.gender_label || "")} · ${esc(c.division_code)} · ${c.n} чел. · ${esc(c.bracket_title || kindRu(c.bracket_kind))}</option>`
         ).join("")}</select>
         <button class="btn sec" id="br-redraw" type="button">Новый жребий</button>
+        <button class="btn sec" id="br-manual" type="button">Расставить вручную</button>
       </div>
       <div class="card">
         <h2>${esc(d.category.age_label)} · ${esc(d.category.gender_label || "")} · дивизион ${esc(d.category.division_code)} · до ${esc(d.category.weight_label)} кг · ${esc(title)}</h2>
@@ -544,6 +552,7 @@ const views = {
       await api(`/api/categories/${state.catId}/redraw`, { method:"POST", body:{} });
       show("brackets");
     };
+    $("#br-manual").onclick = () => manualDrawForm(d);
     renderBracket($("#br"), d);
   },
 
@@ -679,6 +688,38 @@ async function savePoints() {
   toast("Очки обновлены");
 }
 
+function manualDrawForm(d) {
+  const n = d.entries.length;
+  openModal("Ручной жребий", `
+    <p class="hint-inline">Поставьте номера с 1 по ${n}. Так человек встанет в сетку. Результаты боёв этой категории сбросятся.</p>
+    ${d.entries.map(e => `
+      <div class="add-row" style="margin-bottom:8px">
+        <input data-mid="${e.participant_id}" value="${e.control_number}" inputmode="numeric" style="width:64px;text-align:center;font-size:22px;font-weight:700">
+        <span><b>${esc(e.name)}</b> · ${esc(e.organization || "")}${e.rank ? " · " + esc(e.rank) : ""}</span>
+      </div>
+    `).join("")}
+    <button class="btn" id="m-ok" type="button">Поставить в сетку</button>
+  `);
+  $("#m-ok").onclick = async () => {
+    const rows = d.entries.map(e => ({
+      id: e.participant_id,
+      num: +$(`input[data-mid="${e.participant_id}"]`).value,
+    }));
+    const nums = rows.map(r => r.num);
+    if (nums.some(x => !Number.isInteger(x) || x < 1 || x > n) || new Set(nums).size !== n) {
+      toast("Нужны номера с 1 по " + n + ", каждый один раз", "err");
+      return;
+    }
+    rows.sort((a, b) => a.num - b.num);
+    try {
+      await api(`/api/categories/${state.catId}/order`, { method:"POST", body:{ participant_ids: rows.map(r => r.id) } });
+      closeModal();
+      toast("Жребий расставлен");
+      show("brackets");
+    } catch (err) { toast(err.message, "err"); }
+  };
+}
+
 function personForm(p) {
   const v = (k, d="") => p ? (p[k] ?? d) : d;
   openModal(p ? "Участник" : "Новый участник", `
@@ -705,7 +746,7 @@ function personForm(p) {
     <label class="field">Тренер<input id="f-coach" value="${esc(v("coach"))}"></label>
     <div class="grid two">
       <label class="field">Вес, кг<input id="f-w" value="${esc(v("weight"))}"></label>
-      <label class="field">Номер жребия, если уже есть<input id="f-draw" value="${esc(v("draw_number"))}"></label>
+      <label class="field">Жребий<input id="f-draw" value="${esc(v("draw_number"))}" inputmode="numeric" placeholder="можно вручную"></label>
     </div>
     <button class="btn" id="f-ok" type="button">Сохранить</button>
   `);
