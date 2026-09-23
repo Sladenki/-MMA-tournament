@@ -146,8 +146,8 @@ async function renderArchives() {
     <div class="card">
       <p style="margin:0 0 8px">Сейчас открыто: <b>${esc(t.name || "без названия")}</b>${t.date ? " · " + esc(t.date) : ""}</p>
       ${apiOk ? "" : `<div class="warn-box">Сервер старый и не умеет копии. Закройте чёрное окно, запустите start.bat заново, затем обновите страницу.</div>`}
-      <div class="row" style="margin-bottom:12px">
-        <input id="save-name" placeholder="Название копии, например Калининград 14.09.2024" style="max-width:360px">
+      <div class="add-row" style="margin-bottom:12px">
+        <input id="save-name" placeholder="Название копии, например Калининград 14.09.2024">
         <button class="btn" id="save-now" type="button">Сохранить этот турнир</button>
         <button class="btn sec" id="new-now" type="button">Начать с нуля</button>
       </div>
@@ -157,8 +157,8 @@ async function renderArchives() {
         <td>${esc((s.saved_at || "").replace("T", " ").replace("+00:00",""))}</td>
         <td>${s.participants}</td>
         <td>
-          <button class="btn" data-load="${esc(s.id)}" type="button">Открыть</button>
-          <button class="btn danger" data-forget="${esc(s.id)}" type="button">Удалить копию</button>
+            <button class="btn sm" data-load="${esc(s.id)}" type="button">Открыть</button>
+            <button class="btn sm danger" data-forget="${esc(s.id)}" type="button">Удалить</button>
         </td>
       </tr>`).join("")}</tbody></table>` : `<p style="color:#5c6570;margin:0">Сохранённых копий пока нет. Нажмите «Сохранить этот турнир», чтобы оставить учебный список с Excel.</p>`}
     </div>`;
@@ -197,51 +197,51 @@ const views = {
   async setup() {
     const t = state.boot.tournament;
     $("#view").innerHTML = `
-      <div class="grid two">
-        <div class="card">
-          <h2>О турнире</h2>
+      <div class="card">
+        <h2>О турнире</h2>
+        <div class="catalogs">
           <label class="field">Название<input id="t-name" value="${esc(t.name)}"></label>
           <label class="field">Вид спорта<input id="t-kind" value="${esc(t.kind)}"></label>
-          <div class="grid two">
-            <label class="field">Дата<input id="t-date" type="date" value="${esc(t.date||"")}"></label>
-            <label class="field">Город<input id="t-city" value="${esc(t.city)}"></label>
-          </div>
+          <label class="field">Город<input id="t-city" value="${esc(t.city)}"></label>
+          <label class="field">Дата<input id="t-date" type="date" value="${esc(t.date||"")}"></label>
           <label class="field">Главный судья<input id="t-ref" value="${esc(t.chief_referee)}"></label>
           <label class="field">Главный секретарь<input id="t-sec" value="${esc(t.chief_secretary)}"></label>
-          <div class="grid two">
-            <label class="field">Сколько рингов<input id="t-rings" type="number" min="1" value="${t.rings||1}"></label>
-            <label class="field">Третье место
-              <select id="t-bronze">
-                <option value="0">два третьих места</option>
-                <option value="1">отдельный бой за бронзу</option>
-              </select>
-            </label>
-          </div>
-          <label class="field"><span><input type="checkbox" id="t-walk" ${t.award_walkover?"checked":""}> если в категории один человек — дать ему очки за 1-е место</span></label>
-          <button class="btn" id="t-save" type="button">Сохранить реквизиты</button>
+          <label class="field">Сколько рингов<input id="t-rings" type="number" min="1" value="${t.rings||1}"></label>
+          <label class="field">Третье место
+            <select id="t-bronze">
+              <option value="0">два третьих места</option>
+              <option value="1">отдельный бой за бронзу</option>
+            </select>
+          </label>
+          <label class="field"><span><input type="checkbox" id="t-walk" ${t.award_walkover?"checked":""}> очки одиночке (n=1)</span></label>
         </div>
-        <div>
-          <div class="card">
-            <h2>Возрастные группы</h2>
+        <button class="btn" id="t-save" type="button">Сохранить реквизиты</button>
+      </div>
+      <div class="card">
+        <h2>Справочники</h2>
+        <div class="catalogs">
+          <div>
+            <h3>Возрастные группы</h3>
             <div id="ages"></div>
-            <div class="row"><input id="age-label" placeholder="например 2007-2008"><button class="btn sec" id="age-add" type="button">Добавить</button></div>
+            <div class="add-row" style="margin-top:10px"><input id="age-label" placeholder="2007-2008"><button class="btn sec" id="age-add" type="button">Добавить</button></div>
           </div>
-          <div class="card">
-            <h2>Дивизионы</h2>
+          <div>
+            <h3>Дивизионы</h3>
             <div id="divs"></div>
-            <div class="row"><input id="div-code" placeholder="А"><button class="btn sec" id="div-add" type="button">Добавить</button></div>
+            <div class="add-row" style="margin-top:10px"><input id="div-code" placeholder="А"><button class="btn sec" id="div-add" type="button">Добавить</button></div>
           </div>
-          <div class="card">
-            <h2>Весовые категории, кг</h2>
+          <div>
+            <h3>Весовые категории, кг</h3>
             <div id="wts"></div>
-            <div class="row"><input id="wt-kg" placeholder="52,2"><button class="btn sec" id="wt-add" type="button">Добавить</button></div>
+            <div class="add-row" style="margin-top:10px"><input id="wt-kg" placeholder="52,2"><button class="btn sec" id="wt-add" type="button">Добавить</button></div>
           </div>
         </div>
       </div>
       <div class="card">
         <h2>Очки за места</h2>
+        <p class="hint-inline">Сколько очков команда получает за это место. Обычно правят только числа справа.</p>
         <div id="pts"></div>
-        <button class="btn sec" id="pts-save" type="button">Сохранить очки</button>
+        <button class="btn" id="pts-save" type="button">Сохранить очки</button>
       </div>`;
     $("#t-bronze").value = t.bronze_bout ? "1" : "0";
     $("#t-save").onclick = async () => {
@@ -277,7 +277,7 @@ const views = {
           <option value="draw">по жребию</option>
         </select>
         <button class="btn" id="p-add" type="button">Добавить участника</button>
-        <label class="btn sec file-btn">Загрузить Excel<input type="file" id="p-imp" accept=".xlsx,.xlsm,.csv" hidden></label>
+        <label class="btn sec">Загрузить Excel<input type="file" id="p-imp" accept=".xlsx,.xlsm,.csv" hidden></label>
         <a class="btn sec" href="/api/export/participants.xlsx">Скачать список</a>
         <button class="btn sec" id="p-demo" type="button">Учебный список (14 человек)</button>
       </div>
@@ -296,8 +296,8 @@ const views = {
         <td><b>${esc(p.name)}</b></td><td>${esc(p.organization)}</td>
         <td>${esc(p.rank)}</td><td>${p.birth_year??""}</td><td>${esc(p.coach)}</td>
         <td>${p.weight ?? "—"}</td><td><span class="badge ${statusClass(p.status)}">${esc(p.status)}</span></td>
-        <td><button class="btn sec" data-edit="${p.id}" type="button">Изменить</button>
-            <button class="btn danger" data-del="${p.id}" type="button">Удалить</button></td>
+        <td class="actions"><button class="btn sm sec" data-edit="${p.id}" type="button">Изменить</button>
+            <button class="btn sm danger" data-del="${p.id}" type="button">Удалить</button></td>
       </tr>`).join("") || `<tr><td colspan="10">Список пуст. Добавьте человека или загрузите Excel.</td></tr>`;
     };
     draw(list);
@@ -337,8 +337,8 @@ const views = {
             <td><select data-st="${p.id}">
               ${["заявлен","взвешен","допущен","снят","не явился"].map(s => `<option ${s===p.status?"selected":""}>${s}</option>`).join("")}
             </select></td>
-            <td><button class="btn" data-save="${p.id}" type="button">Записать</button>
-                <button class="btn sec" data-hist="${p.id}" type="button">История</button></td>
+            <td class="actions"><button class="btn sm" data-save="${p.id}" type="button">Записать</button>
+                <button class="btn sm sec" data-hist="${p.id}" type="button">История</button></td>
           </tr>`).join("")}</tbody>
         </table>
       </div>`;
@@ -371,9 +371,9 @@ const views = {
           <td>${esc(c.age_label)}</td><td>${esc(c.division_code)}</td>
           <td>до ${esc(c.weight_label)} кг</td><td><b>${c.n}</b></td>
           <td>${esc(c.bracket_title || kindRu(c.bracket_kind))}</td>
-          <td>
-            <button class="btn" data-open="${c.id}" type="button">Открыть сетку</button>
-            <button class="btn sec" data-redraw="${c.id}" type="button">Новый жребий</button>
+          <td class="actions">
+            <button class="btn sm" data-open="${c.id}" type="button">Открыть сетку</button>
+            <button class="btn sm sec" data-redraw="${c.id}" type="button">Новый жребий</button>
           </td>
         </tr>`).join("")}</tbody>
       </table></div>` : `<div class="empty">Категорий ещё нет. Сначала загрузите участников и нажмите «Разбить на категории».</div>`}`;
@@ -447,7 +447,7 @@ const views = {
           <td class="red">${b.red?esc(b.red.name):"—"}</td>
           <td>${b.winner?esc(b.winner.name):(b.blue&&b.red?"ещё не записан":"ждём пару")}</td>
           <td><input data-ring="${b.id}" value="${b.ring??""}" style="width:64px"></td>
-          <td>${b.blue&&b.red?`<button class="btn" data-res="${b.id}" type="button">${b.winner?"Исправить":"Записать"}</button>`:""}</td>
+          <td class="actions">${b.blue&&b.red?`<button class="btn sm" data-res="${b.id}" type="button">${b.winner?"Исправить":"Записать"}</button>`:""}</td>
         </tr>`).join("")}</tbody>
       </table></div>` : `<div class="empty">Боёв нет. Сначала соберите категории.</div>`;
     $("#view").onclick = (e) => {
@@ -515,20 +515,40 @@ const views = {
   },
 };
 
+function placeLabel(from, to) {
+  from = Number(from); to = Number(to);
+  if (from === to) {
+    if (from === 1) return "1-е место";
+    if (from === 2) return "2-е место";
+    if (from === 3) return "3-е место";
+    return from + "-е место";
+  }
+  if (to >= 32) return from + "-е и ниже";
+  return from + "–" + to + " места";
+}
+
 function renderCatalogs() {
   const b = state.boot;
-  $("#ages").innerHTML = b.age_groups.map(g =>
-    `<div class="row" style="margin-bottom:8px"><span>${esc(g.label)} (${g.year_from}–${g.year_to})</span>
-     <button class="btn danger" data-del-age="${g.id}" type="button">Удалить</button></div>`).join("") || "<p>пока нет</p>";
-  $("#divs").innerHTML = b.divisions.map(d =>
-    `<div class="row" style="margin-bottom:8px"><span>${esc(d.code)}</span>
-     <button class="btn danger" data-del-div="${d.id}" type="button">Удалить</button></div>`).join("") || "<p>пока нет</p>";
-  $("#wts").innerHTML = b.weights.map(w =>
-    `<div class="row" style="margin-bottom:8px"><span>до ${esc(w.label)} кг</span>
-     <button class="btn danger" data-del-wt="${w.id}" type="button">Удалить</button></div>`).join("") || "<p>пока нет</p>";
-  $("#pts").innerHTML = b.point_rules.map((p,i) =>
-    `<div class="row" style="margin-bottom:8px">места <input data-pf="${i}" value="${p.place_from}" style="width:70px">–<input data-pt="${i}" value="${p.place_to}" style="width:70px">
-     очки <input data-pp="${i}" value="${p.points}" style="width:70px"></div>`).join("");
+  const chips = (items, html) => items.length
+    ? `<div class="chip-list">${items.map(html).join("")}</div>`
+    : `<p style="color:#5c6570;margin:0">пока нет</p>`;
+  $("#ages").innerHTML = chips(b.age_groups, g =>
+    `<span class="chip">${esc(g.label)} <button type="button" data-del-age="${g.id}" aria-label="Удалить">×</button></span>`);
+  $("#divs").innerHTML = chips(b.divisions, d =>
+    `<span class="chip">${esc(d.code)} <button type="button" data-del-div="${d.id}" aria-label="Удалить">×</button></span>`);
+  $("#wts").innerHTML = chips(b.weights, w =>
+    `<span class="chip">до ${esc(w.label)} <button type="button" data-del-wt="${w.id}" aria-label="Удалить">×</button></span>`);
+  $("#pts").innerHTML = `<table class="data pts-table">
+    <thead><tr><th>Место</th><th>Очки</th></tr></thead>
+    <tbody>${b.point_rules.map((p,i) => `<tr>
+      <td>${esc(placeLabel(p.place_from, p.place_to))}</td>
+      <td>
+        <input class="pts-num" data-pp="${i}" value="${p.points}" inputmode="numeric">
+        <input type="hidden" data-pf="${i}" value="${p.place_from}">
+        <input type="hidden" data-pt="${i}" value="${p.place_to}">
+      </td>
+    </tr>`).join("")}</tbody>
+  </table>`;
   $("#ages").onclick = async (e) => { if (e.target.dataset.delAge) { await api("/api/age-groups/"+e.target.dataset.delAge,{method:"DELETE"}); await boot(); renderCatalogs(); } };
   $("#divs").onclick = async (e) => { if (e.target.dataset.delDiv) { await api("/api/divisions/"+e.target.dataset.delDiv,{method:"DELETE"}); await boot(); renderCatalogs(); } };
   $("#wts").onclick = async (e) => { if (e.target.dataset.delWt) { await api("/api/weights/"+e.target.dataset.delWt,{method:"DELETE"}); await boot(); renderCatalogs(); } };
