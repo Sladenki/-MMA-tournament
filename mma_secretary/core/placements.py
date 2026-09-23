@@ -36,7 +36,7 @@ def _loser(match: MatchSpec) -> int | None:
 def _elim_places(bracket: Bracket, *, two_bronzes: bool) -> list[Placement]:
     places: dict[int, int] = {}
     bronze = next((m for m in bracket.matches if m.round_code == "за бронзу"), None)
-    final = next((m for m in bracket.matches if m.round_code == "финал" and not m.is_bye), None)
+    final = next((m for m in bracket.matches if m.round_code == "финал"), None)
     if final and final.winner_ctrl is not None:
         places[final.winner_ctrl] = 1
         loser = _loser(final)

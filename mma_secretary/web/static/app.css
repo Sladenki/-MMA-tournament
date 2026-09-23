@@ -251,6 +251,22 @@ table.data tbody tr:hover td { background: #f4f8fc; }
 .cols { display: flex; gap: 36px; align-items: stretch; min-height: 240px; }
 .col { display: flex; flex-direction: column; justify-content: space-around; min-width: 260px; }
 .col-title { font-weight: 700; color: var(--navy); margin-bottom: 8px; }
+.tree { display: flex; gap: 28px; align-items: stretch; min-height: 320px; }
+.tree-col { display: flex; flex-direction: column; min-width: 210px; }
+.tree-slots { flex: 1; display: flex; flex-direction: column; justify-content: space-around; gap: 8px; }
+.tree-pair { display: flex; flex-direction: column; gap: 4px; }
+.tree-slot {
+  border: 1px solid var(--line); border-radius: 8px; background: #fff;
+  padding: 10px 12px; min-height: 44px; font-size: 14px;
+  display: flex; justify-content: space-between; align-items: center; gap: 8px;
+}
+.tree-slot.blue { border-left: 5px solid var(--blue); }
+.tree-slot.red { border-left: 5px solid var(--red); }
+.tree-slot.win { background: var(--green-bg); }
+.tree-slot.lose { opacity: .45; }
+.tree-slot.empty { color: var(--muted); }
+.tree-slot.clickable { cursor: pointer; }
+.tree-slot.clickable:hover { border-color: var(--blue); }
 
 .match {
   width: 260px; border: 1px solid var(--line); border-radius: 10px; background: #fff;

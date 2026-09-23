@@ -725,29 +725,51 @@ function personForm(p) {
 function renderBracket(el, d) {
   const byRound = {};
   d.bouts.forEach(b => { (byRound[b.round_code] ||= []).push(b); });
-  const order = ["1/32","1/16","1/8","1/4","круг","1/2","финал","за бронзу","без боя","авто"];
-  const cols = order.filter(k => byRound[k]);
+  const order = ["1/32","1/16","1/8","1/4","1/2","финал"];
+  let rounds = order.filter(k => byRound[k]).map(k =>
+    byRound[k].slice().sort((a,b) => (a.slot||0) - (b.slot||0))
+  );
   const who = (eid) => d.entries.find(e => e.id === eid);
-  const nameOf = (e) => e ? `${e.control_number}. ${e.name}` : "ещё нет пары";
-  el.innerHTML = `<div class="cols">${cols.map(code => `
-    <div class="col">
-      <div class="col-title">${esc(roundRu(code))}</div>
-      ${byRound[code].sort((a,b)=>a.slot-b.slot).map(b => {
-        if (b.is_bye) {
-          const p = who(b.blue_entry_id);
-          const label = (b.round_code === "авто" || b.round_code === "без боя") ? "1-е место без боя" : "проход дальше";
-          return `<div class="match"><header>${esc(label)}</header><div class="p">${esc(nameOf(p))}</div></div>`;
-        }
-        const bl = who(b.blue_entry_id), rd = who(b.red_entry_id);
-        const cls = (eid) => !b.winner_entry_id ? "" : (eid===b.winner_entry_id ? "win" : "lose");
-        const ready = bl && rd;
-        return `<div class="match ${ready?"clickable":""}" data-bout="${b.id}">
-          <header><span>${b.bout_no ? "бой № "+b.bout_no : "пара"}</span><span>${ready ? "нажмите, чтобы записать" : ""}</span></header>
-          <div class="p blue-row ${cls(b.blue_entry_id)}"><span>${esc(nameOf(bl))}</span><span class="corner">СИНИЙ</span></div>
-          <div class="p red-row ${cls(b.red_entry_id)}"><span>${esc(nameOf(rd))}</span><span class="corner">КРАСНЫЙ</span></div>
-        </div>`;
-      }).join("")}
-    </div>`).join("")}</div>`;
+  const nameOf = (e) => e ? `${e.control_number}. ${e.name}` : "—";
+  const slotCls = (b, eid, color) => {
+    const parts = [color];
+    if (!eid) parts.push("empty");
+    if (b && b.winner_entry_id && eid) parts.push(eid === b.winner_entry_id ? "win" : "lose");
+    if (b && b.blue_entry_id && b.red_entry_id && !b.is_bye) parts.push("clickable");
+    return parts.join(" ");
+  };
+  const slotHtml = (b, eid, color) => `
+    <div class="tree-slot ${slotCls(b, eid, color)}" ${b && b.blue_entry_id && b.red_entry_id && !b.is_bye ? `data-bout="${b.id}"` : ""}>
+      <span>${esc(nameOf(who(eid)))}</span>
+      <span class="corner">${color==="blue"?"СИНИЙ": color==="red"?"КРАСНЫЙ":""}</span>
+    </div>`;
+
+  let columns = [];
+  if (!rounds.length && d.entries.length) {
+    const first = d.entries[0];
+    const fake = { blue_entry_id: first.id, red_entry_id: null, winner_entry_id: first.id, is_bye: true };
+    rounds = [[fake, { blue_entry_id: null, red_entry_id: null, winner_entry_id: null, is_bye: true }], [{ blue_entry_id: first.id, red_entry_id: null, winner_entry_id: first.id, is_bye: true }]];
+  }
+  if (rounds.length) {
+    const first = rounds[0];
+    columns.push({
+      title: String(first.length * 2),
+      html: first.map(b => `<div class="tree-pair">${slotHtml(b, b.blue_entry_id, "blue")}${slotHtml(b, b.red_entry_id, "red")}</div>`).join(""),
+    });
+    rounds.forEach((matches) => {
+      columns.push({
+        title: String(matches.length),
+        html: matches.map(b => {
+          const win = b.winner_entry_id || null;
+          const ready = b.blue_entry_id && b.red_entry_id && !b.is_bye;
+          return `<div class="tree-pair"><div class="tree-slot ${win?"win":""} ${ready?"clickable":""} ${win?"":"empty"}" ${ready?`data-bout="${b.id}"`:""}><span>${esc(nameOf(who(win)))}</span></div></div>`;
+        }).join(""),
+      });
+    });
+  }
+  el.innerHTML = columns.length
+    ? `<div class="tree">${columns.map(c => `<div class="tree-col"><div class="col-title">${esc(c.title)}</div><div class="tree-slots">${c.html}</div></div>`).join("")}</div>`
+    : `<div class="empty">Сетка ещё не собрана</div>`;
   el.onclick = (e) => {
     const node = e.target.closest("[data-bout]");
     if (!node) return;

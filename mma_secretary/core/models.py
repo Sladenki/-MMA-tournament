@@ -61,7 +61,7 @@ class Unplaced:
 
 @dataclass(frozen=True)
 class FirstRoundSlot:
-    kind: Literal["fight", "bye"]
+    kind: Literal["fight", "bye", "empty"]
     a: int
     b: int | None = None
 

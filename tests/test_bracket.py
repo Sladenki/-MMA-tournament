@@ -16,7 +16,7 @@ def ctrls(order):
 
 def test_size_table():
     assert [bracket_size(n) for n in (0, 1, 2, 3, 4, 8, 9, 16, 17, 32, 33, 64)] == [
-        0, 1, 2, 4, 8, 8, 16, 16, 32, 32, 64, 64,
+        0, 4, 4, 4, 4, 8, 16, 16, 32, 32, 64, 64,
     ]
 
 
@@ -87,3 +87,24 @@ def test_cannot_score_before_both_known():
     final = next(m for m in b.matches if m.round_code == "финал")
     with pytest.raises(ValueError):
         apply_winner(b, final.key, 1)
+
+
+def test_n1_is_four_two_one():
+    b = build_bracket(1)
+    assert b.size == 4
+    assert b.kind == "single_elim"
+    halves = [m for m in b.matches if m.round_code == "1/2"]
+    finals = [m for m in b.matches if m.round_code == "финал"]
+    assert len(halves) == 2
+    assert len(finals) == 1
+    assert finals[0].winner_ctrl == 1
+    places = {p.control_number: p.place for p in placements_from_bracket(b)}
+    assert places == {1: 1}
+
+
+def test_n2_meet_in_final():
+    b = build_bracket(2)
+    assert b.size == 4
+    final = next(m for m in b.matches if m.round_code == "финал")
+    assert {final.blue_ctrl, final.red_ctrl} == {1, 2}
+    assert not final.is_bye

@@ -296,14 +296,9 @@ def _sigs(t: dict) -> str:
 
 def bracket_svg(detail: dict) -> str:
     entries = {e["id"]: e for e in detail["entries"]}
-    fights = [b for b in detail["bouts"] if not b.get("is_bye")]
-    n = detail["category"]["n"]
-    if n <= 1:
-        name = detail["entries"][0]["name"] if detail["entries"] else "—"
-        return f"<svg xmlns='http://www.w3.org/2000/svg' width='480' height='80'><text x='20' y='40' font-size='16'>{escape(name)} — 1 место</text></svg>"
     if detail["category"].get("bracket_kind") == "round_robin":
         return _rr_svg(detail, entries)
-    return _elim_svg(detail, entries, fights)
+    return _elim_svg(detail, entries, [])
 
 
 def _label(entries: dict, eid) -> str:
@@ -332,30 +327,35 @@ def _rr_svg(detail: dict, entries: dict) -> str:
 
 
 def _elim_svg(detail: dict, entries: dict, fights: list[dict]) -> str:
-    rounds: dict[str, list] = {}
-    order = ["1/32", "1/16", "1/8", "1/4", "1/2", "финал", "за бронзу"]
+    order = ["1/32", "1/16", "1/8", "1/4", "1/2", "финал"]
+    by_round: dict[str, list] = {}
     for b in detail["bouts"]:
-        rounds.setdefault(b["round_code"], []).append(b)
-    cols = [r for r in order if r in rounds]
-    if not cols:
-        cols = list(rounds.keys())
-    col_w, row_h = 220, 52
-    width = 40 + len(cols) * col_w
-    max_rows = max((len(v) for v in rounds.values()), default=1)
-    height = 40 + max_rows * row_h * 2
-    parts = [f"<svg xmlns='http://www.w3.org/2000/svg' width='{width}' height='{height}' font-family='Segoe UI, sans-serif'>"]
-    for ci, code in enumerate(cols):
-        x = 20 + ci * col_w
-        parts.append(f"<text x='{x}' y='18' font-size='12' fill='#555'>{escape(round_ru(code))}</text>")
-        items = sorted(rounds[code], key=lambda b: b.get("slot") or 0)
-        gap = height / (len(items) + 1)
-        for i, b in enumerate(items):
-            y = int(gap * (i + 1) - 18)
-            blue = escape(_label(entries, b.get("blue_entry_id")))
-            red = escape(_label(entries, b.get("red_entry_id")))
-            fill = "#fff8f0" if b.get("winner_entry_id") else "#fff"
-            parts.append(f"<rect x='{x}' y='{y}' width='200' height='44' rx='4' fill='{fill}' stroke='#333'/>")
-            parts.append(f"<text x='{x+6}' y='{y+18}' font-size='11' fill='#123a8a'>{blue}</text>")
-            parts.append(f"<text x='{x+6}' y='{y+36}' font-size='11' fill='#9b1c1c'>{red}</text>")
+        if b.get("round_code") in order:
+            by_round.setdefault(b["round_code"], []).append(b)
+    rounds = [sorted(by_round[k], key=lambda x: x.get("slot") or 0) for k in order if k in by_round]
+    if not rounds:
+        return "<p>Сетка ещё не собрана</p>"
+    columns: list[tuple[str, list[str]]] = []
+    first = rounds[0]
+    start_slots = []
+    for b in first:
+        start_slots.append(_label(entries, b.get("blue_entry_id")))
+        start_slots.append(_label(entries, b.get("red_entry_id")))
+    columns.append((str(len(start_slots)), start_slots))
+    for matches in rounds:
+        columns.append((str(len(matches)), [_label(entries, b.get("winner_entry_id")) for b in matches]))
+    col_w, slot_h = 200, 36
+    first_n = len(columns[0][1]) or 4
+    height = 50 + first_n * slot_h
+    width = 30 + len(columns) * col_w
+    parts = [f"<svg xmlns='http://www.w3.org/2000/svg' width='{width}' height='{height}' font-family='Times New Roman, serif'>"]
+    for ci, (title, slots) in enumerate(columns):
+        x = 16 + ci * col_w
+        parts.append(f"<text x='{x}' y='18' font-size='14' font-weight='700'>{escape(title)}</text>")
+        gap = (height - 28) / max(len(slots), 1)
+        for i, name in enumerate(slots):
+            y = int(28 + gap * i + (gap - 28) / 2)
+            parts.append(f"<rect x='{x}' y='{y}' width='180' height='28' rx='3' fill='#fff' stroke='#333'/>")
+            parts.append(f"<text x='{x+6}' y='{y+19}' font-size='12'>{escape(name)}</text>")
     parts.append("</svg>")
     return "".join(parts)

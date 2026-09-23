@@ -50,7 +50,7 @@ def first_fight_pairs(n: int) -> list[tuple[int, int]]:
     pairs = [(s.a, s.b) for s in slots if s.kind == "fight" and s.b]
     if pairs:
         return pairs
-    ctrls = [s.a for s in slots]
+    ctrls = [s.a for s in slots if s.kind == "bye" and s.a]
     return [(ctrls[i], ctrls[i + 1]) for i in range(0, len(ctrls) - 1, 2)]
 
 

@@ -603,7 +603,7 @@ class TournamentService:
                     m.source_red,
                 ),
             )
-        if bracket.kind == "walkover":
+        if any(m.winner_ctrl for m in bracket.matches):
             self._recalc_category_places(cid)
 
     def _bracket_from_db(self, cid: int) -> tuple[Bracket, dict[int, int], dict[int, int]]:
