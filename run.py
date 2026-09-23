@@ -12,9 +12,27 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 
+def _free_port(port: int = 8765) -> None:
+    import subprocess
+
+    try:
+        out = subprocess.check_output(["netstat", "-ano"], text=True, errors="ignore")
+    except Exception:
+        return
+    pids = set()
+    for line in out.splitlines():
+        if f":{port}" in line and "LISTENING" in line:
+            parts = line.split()
+            if parts and parts[-1].isdigit():
+                pids.add(parts[-1])
+    for pid in pids:
+        subprocess.run(["taskkill", "/F", "/PID", pid], capture_output=True)
+
+
 def main() -> None:
     import uvicorn
 
+    _free_port(8765)
     url = "http://127.0.0.1:8765"
     threading.Timer(1.2, lambda: webbrowser.open(url)).start()
     print(f"Секретарь ММА: {url}")

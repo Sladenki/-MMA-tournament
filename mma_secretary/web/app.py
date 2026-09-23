@@ -27,6 +27,7 @@ from mma_secretary.services.import_export import export_participants_xlsx, expor
 from mma_secretary.storage.db import Database
 
 STATIC = Path(__file__).parent / "static"
+PHOTOS = Path(__file__).resolve().parents[2] / "photos"
 DATA_DIR = Path(os.environ.get("MMA_DATA_DIR", Path(__file__).resolve().parents[2] / "data"))
 DATA_DIR.mkdir(exist_ok=True)
 DB_PATH = DATA_DIR / "tournament.db"
@@ -38,6 +39,8 @@ archives = Archives(DATA_DIR / "saves", svc)
 
 app = FastAPI(title="Секретарь ММА", version="1.0.0")
 app.mount("/static", StaticFiles(directory=STATIC), name="static")
+if PHOTOS.exists():
+    app.mount("/photos", StaticFiles(directory=PHOTOS), name="photos")
 
 
 @app.get("/", response_class=HTMLResponse)

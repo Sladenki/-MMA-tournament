@@ -1,26 +1,81 @@
 from __future__ import annotations
 
+import base64
+import mimetypes
 from html import escape
+from pathlib import Path
 
 from mma_secretary.core.labels import round_ru
 from mma_secretary.core.normalize import format_kg
 from mma_secretary.services.engine import TournamentService
 
+PHOTOS = Path(__file__).resolve().parents[2] / "photos"
+_PHOTO_DATA = None
+
+
+def _photo_file() -> Path | None:
+    roots = [
+        PHOTOS,
+        Path(__file__).resolve().parents[1] / "web" / "static",
+    ]
+    preferred = ("logo.png", "logo.jpg", "logo.jpeg", "logo.webp")
+    for root in roots:
+        if not root.exists():
+            continue
+        names = {f.name.lower(): f for f in root.iterdir() if f.is_file()}
+        for key in preferred:
+            if key in names:
+                return names[key]
+        for f in sorted(root.iterdir(), key=lambda p: p.name.lower()):
+            if f.suffix.lower() in {".png", ".jpg", ".jpeg", ".webp", ".gif"}:
+                return f
+    return None
+
+
+def _photo_src() -> str:
+    global _PHOTO_DATA
+    if _PHOTO_DATA is not None:
+        return _PHOTO_DATA
+    path = _photo_file()
+    if not path:
+        _PHOTO_DATA = ""
+        return ""
+    mime = mimetypes.guess_type(path.name)[0] or "image/png"
+    raw = base64.b64encode(path.read_bytes()).decode("ascii")
+    _PHOTO_DATA = f"data:{mime};base64,{raw}"
+    return _PHOTO_DATA
+
 
 def _header(t: dict) -> str:
+    src = _photo_src()
+    photo = f'<img class="doc-logo" src="{escape(src)}" alt="">' if src else ""
     return f"""
     <header class="doc-head">
-      <div class="doc-title">{escape(t.get("name") or "Турнир")}</div>
-      <div class="doc-sub">{escape(t.get("kind") or "")}</div>
-      <div class="doc-meta">{escape(str(t.get("date") or ""))} · {escape(t.get("city") or "")}</div>
+      <div class="doc-head-row">
+        {photo}
+        <div class="doc-head-text">
+          <div class="doc-title">{escape(t.get("name") or "Турнир")}</div>
+          <div class="doc-sub">{escape(t.get("kind") or "")}</div>
+          <div class="doc-meta">{escape(str(t.get("date") or ""))} · {escape(t.get("city") or "")}</div>
+        </div>
+      </div>
     </header>
     """
 
 
 CSS = """
 @page { size: A4; margin: 12mm; }
+@media screen {
+  html { zoom: 1.5; }
+}
+@media print {
+  html { zoom: 1; }
+}
 body { font-family: "Times New Roman", Times, serif; color: #111; }
-.doc-head { text-align: center; margin-bottom: 12px; }
+.doc-head { text-align: center; margin-bottom: 14px; }
+.doc-head-row { display: inline-flex; align-items: center; justify-content: center; gap: 14px; max-width: 100%; }
+.doc-logo { position: static; height: 64px; width: auto; max-width: 140px; object-fit: contain; flex-shrink: 0; }
+.doc-head-text { text-align: center; }
 .doc-title { font-size: 18px; font-weight: 700; text-transform: uppercase; }
 .doc-sub { font-size: 13px; }
 .doc-meta { font-size: 12px; margin-top: 4px; }
@@ -28,11 +83,10 @@ h2 { font-size: 15px; text-align: center; margin: 16px 0 8px; }
 table { border-collapse: collapse; width: 100%; font-size: 11px; }
 th, td { border: 1px solid #222; padding: 3px 5px; }
 th { background: #eee; }
-.sig { margin-top: 36px; display: flex; justify-content: space-between; gap: 48px; font-size: 12px; }
-.sig-block { min-width: 260px; }
+.sig { margin-top: 28px; display: flex; flex-direction: column; align-items: flex-start; gap: 14px; font-size: 12px; }
 .sig-row { display: flex; align-items: flex-end; gap: 10px; }
-.sig-line { flex: 1; min-width: 120px; border-bottom: 1px solid #111; height: 16px; }
-.sig-note { display: block; font-size: 10px; color: #555; text-align: center; width: 140px; margin-left: auto; }
+.sig-role, .sig-name { white-space: nowrap; }
+.sig-line { display: inline-block; width: 110px; border-bottom: 1px solid #111; height: 14px; }
 .page-break { page-break-before: always; }
 .blue { color: #123a8a; }
 .red { color: #9b1c1c; }
@@ -191,6 +245,7 @@ def certificates(svc: TournamentService) -> str:
     for r in svc.medalists():
         pages.append(f"""
         <section class="cert page-break">
+          {f'<img class="doc-logo" src="{escape(_photo_src())}" alt="" style="margin-bottom:12px">' if _photo_src() else ""}
           <div class="doc-sub">{escape(t.get("name") or "")}</div>
           <h1>ГРАМОТА</h1>
           <p>награждается</p>
@@ -282,13 +337,15 @@ def full_report(svc: TournamentService) -> str:
 def _sigs(t: dict) -> str:
     return f"""
     <div class="sig">
-      <div class="sig-block">
-        <div class="sig-row">Главный судья <span class="sig-line"></span> {escape(t.get("chief_referee") or "")}</div>
-        <small class="sig-note">подпись</small>
+      <div class="sig-row">
+        <span class="sig-role">Главный судья</span>
+        <span class="sig-line"></span>
+        <span class="sig-name">{escape(t.get("chief_referee") or "")}</span>
       </div>
-      <div class="sig-block">
-        <div class="sig-row">Главный секретарь <span class="sig-line"></span> {escape(t.get("chief_secretary") or "")}</div>
-        <small class="sig-note">подпись</small>
+      <div class="sig-row">
+        <span class="sig-role">Главный секретарь</span>
+        <span class="sig-line"></span>
+        <span class="sig-name">{escape(t.get("chief_secretary") or "")}</span>
       </div>
     </div>
     """
