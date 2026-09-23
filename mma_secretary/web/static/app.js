@@ -77,6 +77,134 @@ function esc(s) {
   return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
 }
 
+function closeAllDd(except) {
+  $$(".dd.open").forEach(el => { if (el !== except) el.classList.remove("open"); });
+}
+
+function placeDdMenu(wrap) {
+  const btn = $(".dd-btn", wrap);
+  const menu = $(".dd-menu", wrap);
+  const r = btn.getBoundingClientRect();
+  const width = Math.max(r.width, wrap.classList.contains("dd-wide") ? 360 : r.width);
+  menu.style.minWidth = r.width + "px";
+  menu.style.width = Math.min(width, window.innerWidth - 24) + "px";
+  menu.style.left = Math.min(r.left, window.innerWidth - width - 12) + "px";
+  const spaceBelow = window.innerHeight - r.bottom;
+  if (spaceBelow < 220 && r.top > spaceBelow) {
+    menu.style.top = "auto";
+    menu.style.bottom = (window.innerHeight - r.top + 4) + "px";
+    menu.style.maxHeight = Math.min(280, r.top - 12) + "px";
+  } else {
+    menu.style.bottom = "auto";
+    menu.style.top = (r.bottom + 4) + "px";
+    menu.style.maxHeight = Math.min(280, spaceBelow - 12) + "px";
+  }
+}
+
+function wrapSelect(sel) {
+  if (sel.closest(".dd")) return;
+  const wrap = document.createElement("div");
+  wrap.className = "dd";
+  if (sel.closest("td")) wrap.classList.add("dd-compact");
+  if (sel.id === "cat-sel") wrap.classList.add("dd-wide");
+  sel.parentNode.insertBefore(wrap, sel);
+  sel.classList.add("dd-native");
+  sel.tabIndex = -1;
+  wrap.appendChild(sel);
+
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "dd-btn";
+  btn.setAttribute("aria-haspopup", "listbox");
+  btn.innerHTML = `<span class="dd-label"></span><svg class="dd-caret" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>`;
+  wrap.appendChild(btn);
+
+  const menu = document.createElement("div");
+  menu.className = "dd-menu";
+  menu.setAttribute("role", "listbox");
+  wrap.appendChild(menu);
+
+  const syncLabel = () => {
+    const opt = sel.selectedOptions[0];
+    $(".dd-label", btn).textContent = opt ? opt.textContent : "—";
+    btn.setAttribute("aria-expanded", wrap.classList.contains("open") ? "true" : "false");
+  };
+
+  const fillMenu = () => {
+    menu.innerHTML = [...sel.options].map((o, i) =>
+      `<button type="button" role="option" class="dd-item${o.selected ? " selected active" : ""}" data-i="${i}">${esc(o.textContent)}</button>`
+    ).join("");
+  };
+
+  const pick = (i) => {
+    if (i < 0 || i >= sel.options.length) return;
+    sel.selectedIndex = i;
+    sel.dispatchEvent(new Event("change", { bubbles: true }));
+    syncLabel();
+    closeAllDd();
+  };
+
+  btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const willOpen = !wrap.classList.contains("open");
+    closeAllDd();
+    if (willOpen) {
+      fillMenu();
+      wrap.classList.add("open");
+      placeDdMenu(wrap);
+      syncLabel();
+    }
+  });
+
+  menu.addEventListener("click", (e) => {
+    const item = e.target.closest(".dd-item");
+    if (!item) return;
+    e.stopPropagation();
+    pick(+item.dataset.i);
+  });
+
+  wrap.addEventListener("keydown", (e) => {
+    if (!wrap.classList.contains("open")) {
+      if (e.key === "ArrowDown" || e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        btn.click();
+      }
+      return;
+    }
+    const items = $$(".dd-item", menu);
+    let idx = items.findIndex(x => x.classList.contains("active"));
+    if (idx < 0) idx = items.findIndex(x => x.classList.contains("selected"));
+    if (e.key === "Escape") { e.preventDefault(); closeAllDd(); return; }
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      pick(idx >= 0 ? +items[idx].dataset.i : sel.selectedIndex);
+      return;
+    }
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      if (!items.length) return;
+      items[idx]?.classList.remove("active");
+      idx = e.key === "ArrowDown"
+        ? (idx + 1) % items.length
+        : (idx <= 0 ? items.length - 1 : idx - 1);
+      items[idx].classList.add("active");
+      items[idx].scrollIntoView({ block: "nearest" });
+    }
+  });
+
+  sel.addEventListener("change", syncLabel);
+  syncLabel();
+}
+
+function enhanceSelects(root = document) {
+  $$("select", root).forEach(wrapSelect);
+}
+
+document.addEventListener("click", (e) => { if (!e.target.closest(".dd")) closeAllDd(); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeAllDd(); });
+window.addEventListener("scroll", () => closeAllDd(), true);
+window.addEventListener("resize", () => closeAllDd());
+
 function openModal(title, html) {
   $("#modal-title").textContent = title;
   $("#modal-body").innerHTML = html;
@@ -111,7 +239,7 @@ async function show(view) {
   $("#page-title").textContent = titles[view][0];
   $("#page-hint").textContent = titles[view][1];
   $("#view").innerHTML = "<p>Загрузка…</p>";
-  try { await views[view](); } catch (e) { $("#view").innerHTML = `<div class="warn-box">${esc(e.message)}</div>`; }
+  try { await views[view](); enhanceSelects($("#view")); } catch (e) { $("#view").innerHTML = `<div class="warn-box">${esc(e.message)}</div>`; }
 }
 
 function resultForm(b, methodsHtml, onDone) {
@@ -133,6 +261,7 @@ function resultForm(b, methodsHtml, onDone) {
   };
   $("#pick-blue").onclick = () => send(b.blue.id);
   $("#pick-red").onclick = () => send(b.red.id);
+  enhanceSelects($("#modal-body"));
   const clr = $("#w-clr");
   if (clr) clr.onclick = async () => { await api(`/api/bouts/${b.id}/clear`, { method:"POST", body:{} }); closeModal(); onDone(); };
 }

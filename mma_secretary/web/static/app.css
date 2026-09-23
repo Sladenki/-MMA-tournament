@@ -114,7 +114,8 @@ h1 { margin: 0; font-size: 28px; color: var(--navy); }
 .busy { color: var(--amber); }
 
 .toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
-.toolbar input, .toolbar select { width: auto; min-width: 160px; max-width: 280px; flex: 1 1 180px; }
+.toolbar input, .toolbar select, .toolbar .dd { width: auto; min-width: 160px; max-width: 280px; flex: 1 1 180px; }
+.toolbar .dd-wide { min-width: 280px; max-width: 520px; flex: 1 1 360px; }
 .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; flex: 0 0 auto; }
 .stat b { display: block; font-size: 20px; color: var(--navy); }
 .stat span { color: var(--muted); font-size: 12px; }
@@ -141,8 +142,56 @@ input, select, textarea {
   font: inherit; color: var(--text); background: #fff;
   border: 1px solid #b7c1cc; border-radius: 8px; padding: 10px 12px;
 }
-label.field input, label.field select, label.field textarea { width: 100%; }
+label.field input, label.field select, label.field textarea, label.field .dd { width: 100%; }
 input:focus, select:focus { outline: 3px solid #c5dbf5; border-color: var(--blue); }
+
+.dd { position: relative; display: inline-block; min-width: 0; vertical-align: middle; }
+.dd-native {
+  position: absolute !important;
+  width: 1px !important; height: 1px !important;
+  padding: 0 !important; margin: 0 !important; border: 0 !important;
+  overflow: hidden; opacity: 0; pointer-events: none;
+}
+.dd-btn {
+  width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  font: inherit; color: var(--text); background: #fff; text-align: left;
+  border: 1px solid #b7c1cc; border-radius: 8px; padding: 10px 12px; cursor: pointer;
+}
+.dd-btn:hover { border-color: #8ea0b3; }
+.dd-btn:focus, .dd.open .dd-btn {
+  outline: 3px solid #c5dbf5; border-color: var(--blue);
+}
+.dd-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dd-caret {
+  width: 16px; height: 16px; flex-shrink: 0;
+  stroke: var(--muted); fill: none; stroke-width: 2;
+  stroke-linecap: round; stroke-linejoin: round;
+  transition: transform .15s ease;
+}
+.dd.open .dd-caret { transform: rotate(180deg); stroke: var(--blue); }
+.dd-menu {
+  display: none;
+  position: fixed;
+  z-index: 40;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 10px 28px rgba(16, 36, 64, .16);
+  padding: 4px;
+  max-height: 280px;
+  overflow: auto;
+}
+.dd.open .dd-menu { display: block; }
+.dd-item {
+  display: block; width: 100%; border: 0; background: none;
+  font: inherit; color: var(--text); text-align: left;
+  padding: 9px 12px; border-radius: 7px; cursor: pointer;
+}
+.dd-item:hover, .dd-item.active { background: var(--blue-bg); color: var(--blue); }
+.dd-item.selected { font-weight: 700; color: var(--navy); }
+.dd-item.selected:hover, .dd-item.selected.active { color: var(--blue); }
+.dd-compact { min-width: 148px; }
+.dd-compact .dd-btn { padding: 7px 10px; font-size: 14px; }
 
 .btn, a.btn {
   appearance: none; border: 0; cursor: pointer; font: inherit; font-weight: 600;
