@@ -1,0 +1,77 @@
+# -*- mode: python ; coding: utf-8 -*-
+"""Один exe: Секретарь ММА. База создаётся в папке data рядом с файлом."""
+
+hidden = [
+    "multipart",
+    "sqlite3",
+    "h11",
+    "websockets",
+    "openpyxl",
+    "uvicorn.logging",
+    "uvicorn.loops",
+    "uvicorn.loops.auto",
+    "uvicorn.loops.asyncio",
+    "uvicorn.protocols",
+    "uvicorn.protocols.http",
+    "uvicorn.protocols.http.auto",
+    "uvicorn.protocols.http.h11_impl",
+    "uvicorn.protocols.websockets",
+    "uvicorn.protocols.websockets.auto",
+    "uvicorn.protocols.websockets.websockets_impl",
+    "uvicorn.lifespan",
+    "uvicorn.lifespan.on",
+    "uvicorn.lifespan.off",
+]
+
+a = Analysis(
+    ["run.py"],
+    pathex=[],
+    binaries=[],
+    datas=[
+        ("mma_secretary/web/static", "mma_secretary/web/static"),
+        ("tests/fixtures/gold_2024.json", "mma_secretary/fixtures"),
+    ],
+    hiddenimports=hidden,
+    hookspath=[],
+    hooksconfig={},
+    runtime_hooks=[],
+    excludes=[
+        "pytest",
+        "tkinter",
+        "numpy",
+        "pandas",
+        "scipy",
+        "matplotlib",
+        "numba",
+        "PIL",
+        "lxml",
+        "sqlalchemy",
+        "IPython",
+        "notebook",
+    ],
+    noarchive=False,
+    optimize=0,
+)
+pyz = PYZ(a.pure)
+
+exe = EXE(
+    pyz,
+    a.scripts,
+    a.binaries,
+    a.datas,
+    [],
+    name="Секретарь ММА",
+    debug=False,
+    bootloader_ignore_signals=False,
+    strip=False,
+    upx=False,
+    upx_exclude=[],
+    runtime_tmpdir=None,
+    console=True,
+    disable_windowed_traceback=False,
+    argv_emulation=False,
+    target_arch=None,
+    codesign_identity=None,
+    entitlements_file=None,
+    icon="mma_secretary/web/static/favicon.ico",
+)

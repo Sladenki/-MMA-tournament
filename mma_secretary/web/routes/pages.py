@@ -1,11 +1,16 @@
 from __future__ import annotations
 
 from fastapi import APIRouter
-from fastapi.responses import HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse
 
 from mma_secretary.web.deps import STATIC
 
 router = APIRouter()
+
+
+@router.get("/favicon.ico", include_in_schema=False)
+def favicon():
+    return FileResponse(STATIC / "favicon.ico")
 
 
 @router.get("/", response_class=HTMLResponse)

@@ -2,17 +2,14 @@
 
 from __future__ import annotations
 
-import os
-from pathlib import Path
-
+from mma_secretary.paths import data_dir, photos_dir, static_dir
 from mma_secretary.services.archives import Archives
 from mma_secretary.services.engine import TournamentService
 from mma_secretary.storage.db import Database
 
-STATIC = Path(__file__).parent / "static"
-PHOTOS = Path(__file__).resolve().parents[2] / "photos"
-DATA_DIR = Path(os.environ.get("MMA_DATA_DIR", Path(__file__).resolve().parents[2] / "data"))
-DATA_DIR.mkdir(exist_ok=True)
+STATIC = static_dir()
+PHOTOS = photos_dir()
+DATA_DIR = data_dir()
 DB_PATH = DATA_DIR / "tournament.db"
 
 db = Database(DB_PATH)

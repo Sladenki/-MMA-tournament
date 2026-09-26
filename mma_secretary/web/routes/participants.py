@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 from fastapi import APIRouter, File, UploadFile
 
+from mma_secretary.paths import gold_fixture
 from mma_secretary.services.import_export import import_xlsx
 from mma_secretary.web.deps import svc
 from mma_secretary.web.errors import bad_request
@@ -64,7 +64,7 @@ async def import_parts(file: UploadFile = File(...)):
 @router.post("/api/demo")
 def demo():
     """Загрузить 14 участников из эталонного файла 14.09.2024."""
-    gold = Path(__file__).resolve().parents[3] / "tests" / "fixtures" / "gold_2024.json"
+    gold = gold_fixture()
     data = json.loads(gold.read_text(encoding="utf-8"))
     svc.seed_defaults()
     existing = {p["name"] for p in svc.list_participants()}

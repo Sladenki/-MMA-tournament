@@ -7,3 +7,5 @@ __pycache__/
 _source.xlsm
 _extract.json
 .venv/
+build/
+dist/

@@ -7,26 +7,34 @@ from pathlib import Path
 
 from mma_secretary.core.labels import round_ru
 from mma_secretary.core.normalize import format_kg
+from mma_secretary.paths import photos_dir, static_dir
 from mma_secretary.services.engine import TournamentService
 
-PHOTOS = Path(__file__).resolve().parents[2] / "photos"
+PHOTOS = photos_dir()
+_APP_IMAGES = {"icon.png", "favicon.ico"}
 _PHOTO_DATA = None
 
 
 def _photo_file() -> Path | None:
     roots = [
         PHOTOS,
-        Path(__file__).resolve().parents[1] / "web" / "static",
+        static_dir(),
     ]
     preferred = ("logo.png", "logo.jpg", "logo.jpeg", "logo.webp")
     for root in roots:
         if not root.exists():
             continue
-        names = {f.name.lower(): f for f in root.iterdir() if f.is_file()}
+        names = {
+            f.name.lower(): f
+            for f in root.iterdir()
+            if f.is_file() and f.name.lower() not in _APP_IMAGES
+        }
         for key in preferred:
             if key in names:
                 return names[key]
         for f in sorted(root.iterdir(), key=lambda p: p.name.lower()):
+            if f.name.lower() in _APP_IMAGES:
+                continue
             if f.suffix.lower() in {".png", ".jpg", ".jpeg", ".webp", ".gif"}:
                 return f
     return None
@@ -98,7 +106,9 @@ th { background: #eee; }
 def wrap(title: str, body: str, landscape: bool = False) -> str:
     orient = "landscape" if landscape else ""
     return f"""<!doctype html><html lang="ru"><head><meta charset="utf-8">
-    <title>{escape(title)}</title><style>{CSS}</style></head>
+    <title>{escape(title)}</title>
+    <link rel="icon" href="/favicon.ico" sizes="any">
+    <style>{CSS}</style></head>
     <body class="{orient}">{body}</body></html>"""
 
 
