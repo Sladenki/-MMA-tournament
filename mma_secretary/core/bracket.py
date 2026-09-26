@@ -176,10 +176,7 @@ def build_bracket(n: int, *, bronze_bout: bool = False) -> Bracket:
                 )
             )
 
-    kind = "single_elim"
-    if n == 1:
-        kind = "single_elim"
-    bracket = Bracket(n, size, kind, first, matches)
+    bracket = Bracket(n, size, "single_elim", first, matches)
     _propagate(bracket)
     return bracket
 
@@ -220,13 +217,13 @@ def _propagate(bracket: Bracket) -> None:
         if m.source_blue:
             src = by_key[m.source_blue]
             if m.round_code == "за бронзу":
-                m.blue_ctrl = _loser(src)
+                m.blue_ctrl = loser_of(src)
             else:
                 m.blue_ctrl = src.winner_ctrl
         if m.source_red:
             src = by_key[m.source_red]
             if m.round_code == "за бронзу":
-                m.red_ctrl = _loser(src)
+                m.red_ctrl = loser_of(src)
             else:
                 m.red_ctrl = src.winner_ctrl
         if m.is_bye and m.winner_ctrl and m.winner_ctrl not in {m.blue_ctrl, m.red_ctrl}:
@@ -239,10 +236,15 @@ def _propagate(bracket: Bracket) -> None:
             m.winner_ctrl = None
 
 
-def _loser(match: MatchSpec) -> int | None:
+def loser_of(match: MatchSpec) -> int | None:
     if match.winner_ctrl is None or match.blue_ctrl is None or match.red_ctrl is None:
         return None
     return match.red_ctrl if match.winner_ctrl == match.blue_ctrl else match.blue_ctrl
+
+
+def propagate(bracket: Bracket) -> None:
+    """Продвинуть уже записанных победителей по сетке."""
+    _propagate(bracket)
 
 
 def fight_count(n: int, bronze_bout: bool = False) -> int:

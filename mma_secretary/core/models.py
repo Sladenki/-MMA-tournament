@@ -83,7 +83,7 @@ class MatchSpec:
 class Bracket:
     n: int
     size: int
-    kind: Literal["empty", "walkover", "final", "round_robin", "single_elim"]
+    kind: Literal["empty", "single_elim"]
     first_round: list[FirstRoundSlot] = field(default_factory=list)
     matches: list[MatchSpec] = field(default_factory=list)
 
@@ -117,22 +117,4 @@ DEFAULT_POINT_RULES: tuple[PointRule, ...] = (
     PointRule(5, 8, 2),
     PointRule(9, 16, 1),
     PointRule(17, 64, 0),
-)
-
-WIN_METHODS: tuple[str, ...] = (
-    "решение",
-    "нокаут",
-    "технический нокаут",
-    "сдача",
-    "дисквалификация",
-    "неявка",
-    "снятие",
-)
-
-STATUSES: tuple[str, ...] = (
-    "заявлен",
-    "взвешен",
-    "допущен",
-    "снят",
-    "не явился",
 )

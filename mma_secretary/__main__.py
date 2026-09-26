@@ -1,16 +1,8 @@
-from __future__ import annotations
-
-import threading
-import webbrowser
+from mma_secretary.web.server import serve
 
 
 def main() -> None:
-    import uvicorn
-
-    url = "http://127.0.0.1:8765"
-    threading.Timer(1.2, lambda: webbrowser.open(url)).start()
-    print(f"Секретарь ММА: {url}")
-    uvicorn.run("mma_secretary.web.app:app", host="127.0.0.1", port=8765, reload=False)
+    serve()
 
 
 if __name__ == "__main__":

@@ -70,22 +70,14 @@ def assign_control_numbers(participants: Sequence[Participant]) -> list[tuple[in
 
 
 def redraw_control_numbers(
-    people: Sequence[Participant] | Sequence[int],
+    people: Sequence[Participant],
     *,
     seed: int | None = None,
 ) -> tuple[list[tuple[int, int]], int]:
     """Новый жребий: сильнее по разряду дальше друг от друга, клубы разводим."""
     if seed is None:
         seed = secrets.randbits(32)
-    rng = _rng(seed)
-    items = list(people)
-    if items and not isinstance(items[0], Participant):
-        # старый вызов только с id — случайная перестановка
-        ids = list(items)
-        numbers = list(range(1, len(ids) + 1))
-        _shuffle(numbers, rng)
-        return list(zip(ids, numbers)), seed
-    return _place_people(items, rng=rng), seed
+    return _place_people(list(people), rng=_rng(seed)), seed
 
 
 def _place_people(people: list[Participant], rng) -> list[tuple[int, int]]:

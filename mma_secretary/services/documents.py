@@ -92,7 +92,6 @@ th { background: #eee; }
 .red { color: #9b1c1c; }
 .cert { text-align: center; padding: 40px 20px; border: 8px double #7a1d1d; min-height: 70vh; }
 .cert h1 { letter-spacing: .3em; font-size: 28px; color: #7a1d1d; }
-.landscape { }
 """
 
 
@@ -151,7 +150,7 @@ def protocol_mandate(svc: TournamentService) -> str:
 
 def pair_list(svc: TournamentService) -> str:
     t = svc.get_tournament()
-    first_rounds = {"1/32", "1/16", "1/8", "1/4", "круг", "финал"}
+    first_rounds = {"1/32", "1/16", "1/8", "1/4", "финал", "круг"}
     rows = ""
     for b in svc.list_bouts():
         if b["is_bye"] or not b["blue"] or not b["red"]:
@@ -355,17 +354,11 @@ def bracket_svg(detail: dict) -> str:
     entries = {e["id"]: e for e in detail["entries"]}
     if detail["category"].get("bracket_kind") == "round_robin":
         return _rr_svg(detail, entries)
-    return _elim_svg(detail, entries, [])
-
-
-def _label(entries: dict, eid) -> str:
-    if not eid:
-        return "—"
-    e = entries.get(eid) or {}
-    return f"{e.get('control_number', '')}. {e.get('name', '')}"
+    return _elim_svg(detail, entries)
 
 
 def _rr_svg(detail: dict, entries: dict) -> str:
+    """Старые сохранения с круговой сеткой. Новые категории так больше не строятся."""
     y = 40
     lines = []
     for b in detail["bouts"]:
@@ -383,7 +376,14 @@ def _rr_svg(detail: dict, entries: dict) -> str:
     return f"<svg xmlns='http://www.w3.org/2000/svg' width='720' height='{y+20}'>{''.join(lines)}</svg>"
 
 
-def _elim_svg(detail: dict, entries: dict, fights: list[dict]) -> str:
+def _label(entries: dict, eid) -> str:
+    if not eid:
+        return "—"
+    e = entries.get(eid) or {}
+    return f"{e.get('control_number', '')}. {e.get('name', '')}"
+
+
+def _elim_svg(detail: dict, entries: dict) -> str:
     order = ["1/32", "1/16", "1/8", "1/4", "1/2", "финал"]
     by_round: dict[str, list] = {}
     for b in detail["bouts"]:

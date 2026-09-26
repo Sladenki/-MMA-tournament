@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import sys
-import threading
-import webbrowser
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
@@ -30,14 +28,10 @@ def _free_port(port: int = 8765) -> None:
 
 
 def main() -> None:
-    import uvicorn
+    from mma_secretary.web.server import PORT, serve
 
-    _free_port(8765)
-    url = "http://127.0.0.1:8765"
-    threading.Timer(1.2, lambda: webbrowser.open(url)).start()
-    print(f"Секретарь ММА: {url}")
-    print("Работает без интернета. Закройте это окно, чтобы остановить.")
-    uvicorn.run("mma_secretary.web.app:app", host="127.0.0.1", port=8765, reload=False)
+    _free_port(PORT)
+    serve()
 
 
 if __name__ == "__main__":
