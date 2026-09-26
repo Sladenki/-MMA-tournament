@@ -36,6 +36,19 @@ def static_dir() -> Path:
     return Path(__file__).resolve().parent / "web" / "static"
 
 
+def manual_path() -> Path:
+    name = "Инструкция для секретаря.docx"
+    candidates = (
+        static_dir() / "instruction.docx",
+        Path(__file__).resolve().parent.parent / name,
+        project_dir() / name,
+    )
+    for path in candidates:
+        if path.is_file():
+            return path
+    return candidates[-1]
+
+
 def gold_fixture() -> Path:
     bundled = Path(__file__).resolve().parent / "fixtures" / "gold_2024.json"
     if bundled.is_file():

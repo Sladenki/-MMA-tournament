@@ -255,8 +255,8 @@ function resultForm(b, onDone) {
   openModal("Кто победил" + (b.bout_no ? ` · бой № ${b.bout_no}` : ""), `
     <p>${esc(roundRu(b.round_title || b.round_code))}</p>
     <div class="pick">
-      <button class="btn blue wide" id="pick-blue" type="button">Синий угол<br>${esc(b.blue.name)}</button>
-      <button class="btn red wide" id="pick-red" type="button">Красный угол<br>${esc(b.red.name)}</button>
+      <button class="btn blue wide" id="pick-blue" type="button"><span class="pick-corner">Синий угол</span><span class="pick-name">${esc(b.blue.name)}</span></button>
+      <button class="btn red wide" id="pick-red" type="button"><span class="pick-corner">Красный угол</span><span class="pick-name">${esc(b.red.name)}</span></button>
     </div>
     ${b.winner_entry_id || b.winner ? `<button class="btn sec" id="w-clr" type="button">Сбросить результат</button>` : ""}
   `);

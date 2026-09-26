@@ -25,7 +25,7 @@ def serve() -> None:
     url = f"http://{HOST}:{PORT}"
     threading.Timer(1.2, lambda: webbrowser.open(url)).start()
     print(f"Секретарь ММА: {url}")
-    print("Работает без интернета. Закройте это окно, чтобы остановить.")
+    print("Закройте это окно, чтобы остановить.")
     if getattr(sys, "frozen", False):
         from mma_secretary.web.app import app
 

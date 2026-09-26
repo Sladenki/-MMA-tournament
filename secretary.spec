@@ -30,6 +30,7 @@ a = Analysis(
     datas=[
         ("mma_secretary/web/static", "mma_secretary/web/static"),
         ("tests/fixtures/gold_2024.json", "mma_secretary/fixtures"),
+        ("Инструкция для секретаря.docx", "."),
     ],
     hiddenimports=hidden,
     hookspath=[],
