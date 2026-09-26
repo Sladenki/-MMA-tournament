@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
+from mma_secretary.paths import frozen
 from mma_secretary.web.deps import svc
 from mma_secretary.web.errors import bad_request
 
@@ -19,6 +20,7 @@ def bootstrap():
         ],
         "weights": [w.__dict__ for w in svc.list_weights()],
         "point_rules": [p.__dict__ for p in svc.list_point_rules()],
+        "keeps_documents": frozen(),
     }
 
 

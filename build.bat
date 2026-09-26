@@ -6,5 +6,5 @@ python tools\make_icon.py
 python -m PyInstaller --noconfirm --clean secretary.spec
 echo.
 echo Готово: dist\Секретарь ММА.exe
-echo Рядом с программой появится папка data — там хранится турнир.
+echo Турнир хранится в Документах, в папке «Секретарь ММА».
 pause

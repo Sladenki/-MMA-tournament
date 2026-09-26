@@ -278,6 +278,7 @@ async function renderArchives() {
   $("#view").innerHTML = `
     <div class="card">
       <p style="margin:0 0 8px">Сейчас открыто: <b>${esc(t.name || "без названия")}</b>${t.date ? " · " + esc(t.date) : ""}</p>
+      ${state.boot.keeps_documents ? `<p class="hint-inline">Турнир хранится в Документах, в папке «Секретарь ММА». Если удалить программу из Загрузок, данные останутся.</p>` : ""}
       ${apiOk ? "" : `<div class="warn-box">Сервер старый и не умеет копии. Закройте чёрное окно, запустите start.bat заново, затем обновите страницу.</div>`}
       <div class="add-row" style="margin-bottom:12px">
         <input id="save-name" placeholder="Название копии, например Калининград 14.09.2024">
